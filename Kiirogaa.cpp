@@ -27,6 +27,7 @@ enum {
 typedef struct _Kiirogaa
 {
     FILE* logfp;
+    WCHAR logPath[MAX_PATH];
     HMODULE hModule;
     HHOOK hHook;
     HICON iconKiirogaaOn;
@@ -35,10 +36,24 @@ typedef struct _Kiirogaa
     BOOL enabled;
 } Kiirogaa;
 
-static int openLogFile(Kiirogaa* self, LPCWSTR path)
+static int openLogFile(Kiirogaa* self)
 {
-    self->focusHWnd = NULL;
-    return _wfopen_s(&self->logfp, path, L"a");
+    if (self->logPath[0] == '\0') {
+        self->logfp = stderr;
+        return 0;
+    } else {
+        return _wfopen_s(&self->logfp, self->logPath, L"a");
+    }
+}
+
+static void closeLogFile(Kiirogaa* self)
+{
+    if (self->logfp == stderr) {
+        ;
+    } else if (self->logfp != NULL) {
+        fclose(self->logfp);
+        self->logfp = NULL;
+    }
 }
 
 // writeToLog(self, c)
@@ -146,18 +161,17 @@ static LRESULT CALLBACK kiirogaaTrayWndProc(
         case IDM_SAVEAS:
             // Open a new log file.
             if (self != NULL) {
-                WCHAR path[MAX_PATH] = {0};
                 OPENFILENAME ofn = {0};
                 ofn.lStructSize = sizeof(ofn);
                 ofn.hwndOwner = hWnd;
                 ofn.lpstrTitle = L"Save As";
                 ofn.lpstrFilter = L"Text Files (*.log)\0*.log\0All Files (*.*)\0*.*\0\0";
-                ofn.lpstrFile = path;
-                ofn.nMaxFile = MAX_PATH-1;
+                ofn.lpstrFile = self->logPath;
+                ofn.nMaxFile = _countof(self->logPath)-1;
                 ofn.lpstrDefExt = L"log";
                 ofn.Flags = OFN_EXPLORER;
                 if (GetSaveFileName(&ofn)) {
-                    openLogFile(self, path);
+                    SendMessage(hWnd, WM_USER_STATE_CHANGED, 0, 0);                    
                 }
             }
             break;
@@ -190,6 +204,11 @@ static LRESULT CALLBACK kiirogaaTrayWndProc(
                     info.fState |= MFS_DEFAULT;
                     SetMenuItemInfo(menu, IDM_TOGGLE, FALSE, &info);
                 }
+            }
+            closeLogFile(self);
+            self->focusHWnd = NULL;
+            if (self->enabled) {
+                openLogFile(self);
             }
             SendMessage(hWnd, WM_USER_ICON_CHANGED, 0, 0);
         }
@@ -296,13 +315,12 @@ int KiirogaaMain(
     // Create a structure.
     Kiirogaa* kiirogaa = (Kiirogaa*) calloc(1, sizeof(Kiirogaa));
     if (kiirogaa == NULL) return 111;
-    kiirogaa->logfp = stderr;
 
     // Parse the command line options.
     for (int i = 1; i < argc; i++) {
         if (wcscmp(argv[i], L"-l") == 0 && (i+1) < argc) {
             i++;
-            openLogFile(kiirogaa, argv[i]);
+            wcscpy(kiirogaa->logPath, argv[i]);
         }
     }
 
@@ -370,10 +388,7 @@ int KiirogaaMain(
     }
 
     // Cleanup.
-    if (kiirogaa->logfp != NULL) {
-        fclose(kiirogaa->logfp);
-        kiirogaa->logfp = NULL;
-    }
+    closeLogFile(kiirogaa);
     if (kiirogaa->hHook != NULL) {
         UnhookWindowsHookEx(kiirogaa->hHook);
         kiirogaa->hHook = NULL;
