@@ -1,0 +1,7 @@
+#define IDC_STATIC -1
+#define IDI_KIIROGAA_ON 100
+#define IDI_KIIROGAA_OFF 101
+#define IDM_POPUPMENU 200
+#define IDM_EXIT 201
+#define IDM_TOGGLE 202
+#define IDM_SAVEAS 203
