@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <Windows.h>
 #include <StrSafe.h>
 #include "Resource.h"
@@ -56,6 +57,18 @@ static void closeLogFile(Kiirogaa* self)
     }
 }
 
+static time_t SYSTEM2time(const SYSTEMTIME* st)
+{
+    struct tm tm = {0};
+    tm.tm_sec = st->wSecond;
+    tm.tm_min = st->wMinute;
+    tm.tm_hour = st->wHour;
+    tm.tm_mday = st->wDay;
+    tm.tm_mon = st->wMonth - 1;
+    tm.tm_year = st->wYear - 1900;
+    return mktime(&tm);
+}
+
 // writeToLog(self, c)
 static void writeToLog(Kiirogaa* self, int c)
 {
@@ -71,9 +84,8 @@ static void writeToLog(Kiirogaa* self, int c)
     SYSTEMTIME st;
     GetLocalTime(&st);
     fwprintf(
-        self->logfp, L"%04d-%02d-%02d %02d:%02d:%02d.%03d %04x\n",
-        st.wYear, st.wMonth, st.wDay,
-        st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, c);
+        self->logfp, L"%lld.%03d %d\n",
+        SYSTEM2time(&st), st.wMilliseconds, c);
     fflush(self->logfp);
 }
 
@@ -321,6 +333,8 @@ int KiirogaaMain(
         if (wcscmp(argv[i], L"-l") == 0 && (i+1) < argc) {
             i++;
             wcscpy(kiirogaa->logPath, argv[i]);
+        } else if (wcscmp(argv[i], L"-e") == 0) {
+            kiirogaa->enabled = TRUE;
         }
     }
 

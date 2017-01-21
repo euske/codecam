@@ -28,7 +28,7 @@ install: clean
 	$(COPY) Hookey.dll $(DESTDIR)
 
 test: $(TARGETS)
-	.\Kiirogaa.exe
+	.\Kiirogaa.exe -e
 
 clean:
 	-$(DEL) $(TARGETS)
