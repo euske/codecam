@@ -12,7 +12,9 @@ def readkeys(fp, title=None):
         elif line and ok:
             (t,_,c) = line.partition(' ')
             if t and c:
-                yield (float(t), chr(int(c)))
+                ch = chr(int(c))
+                if ch.isalnum():
+                    yield (float(t), ch)
     return
 
 class Match:
@@ -27,8 +29,12 @@ class Match:
         self.e2 = i2+n
         assert self.s1 < self.e1
         assert self.s2 < self.e2
-        self.n1 = self.e1 - self.s1
+        self.n = sum( n for (n,_,_) in ranges )
         return
+
+    def __repr__(self):
+        return ('<Match(%d-%d, %d-%d)>' %
+                (self.s1, self.e1, self.s2, self.e2))
 
     def getdist(self, m):
         # must be non-overlapping and non-crossing.
@@ -61,7 +67,7 @@ def getmatches(text1, text2):
                 ia = i1
                 ib = i2
                 n = 0
-                while text1[ia] == text2[ib] and ia < n1 and ib < n2:
+                while ia < n1 and ib < n2 and text1[ia] == text2[ib]:
                     pairs.add((ia,ib))
                     ia += 1
                     ib += 1
@@ -75,7 +81,7 @@ def getmatches(text1, text2):
 
 def cluster(matches, gap=INF):
     sys.stderr.write('cluster: %d matches' % len(matches))
-    matches.sort(key=lambda m:m.n1, reverse=True)
+    matches.sort(key=lambda m:m.n, reverse=True)
     n = 0
     for i in range(len(matches)-1, -1, -1):
         m0 = matches[i]
@@ -98,6 +104,28 @@ def cluster(matches, gap=INF):
     sys.stderr.write('\n')
     return matches
 
+class Taken(Exception): pass
+def fixate(matches):
+    matches.sort(key=lambda m:(m.n,m.e1), reverse=True)
+    maps = {}
+    taken1 = set()
+    taken2 = set()
+    for m in matches:
+        try:
+            r = []
+            for (n,i1,i2) in m.ranges:
+                for i in range(n):
+                    if i1+i in taken1: raise Taken()
+                    if i2+i in taken2: raise Taken()
+                    r.append((i1+i, i2+i))
+            taken1.update( i1 for (i1,_) in r )
+            taken2.update( i2 for (_,i2) in r )
+            for (i1,i2) in r:
+                maps[i2] = i1
+        except Taken:
+            pass
+    return maps
+
 def main(argv):
     import getopt
     import fileinput
@@ -114,21 +142,24 @@ def main(argv):
         if k == '-d': debug += 1
         elif k == '-t': title = v
     if not args: return usage()
-    path = args.pop(0)
-    with open(path, 'r') as fp:
+    with open(args.pop(0), 'r') as fp:
         keys = list(readkeys(fp, title=title))
     text1 = ''.join( c for (_,c) in keys )
-    for path in args:
-        with open(path, 'r') as fp:
-            text2 = fp.read()
-        matches = getmatches(text1, text2)
-        n0 = INF
+    fp = fileinput.input(args)
+    text2 = ''.join( fp )
+    matches = getmatches(text1, text2)
+    n0 = INF
+    n1 = len(matches)
+    while n1 < n0:
+        matches = cluster(matches)
+        n0 = n1
         n1 = len(matches)
-        while n1 < n0:
-            matches = cluster(matches)
-            n0 = n1
-            n1 = len(matches)
-        print (matches)
+    maps = fixate(matches)
+    for (i2,c) in enumerate(text2):
+        if i2 in maps:
+            i1 = maps[i2]
+            print(i2, c, i1, keys[i1])
+    print()
     return 0
 
 if __name__ == '__main__': sys.exit(main(sys.argv))
