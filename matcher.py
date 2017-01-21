@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 import sys
+INF = sys.maxsize
 
 def readkeys(fp, title=None):
-    import re
-    import time
-    LINE_PAT = re.compile(r'(\d+)-(\d+)-(\d+) (\d+):(\d+):(\d+\.\d+) ([a-fA-F0-9]+)')
     ok = True
     for line in fp:
         line = line.strip()
@@ -12,25 +10,50 @@ def readkeys(fp, title=None):
             (_,_,s) = line.partition(' ')
             ok = (title is None or s == title)
         elif line and ok:
-            m = LINE_PAT.match(line)
-            if m:
-                (yy,mm,dd,HH,MM,SS,ch) = m.groups()
-                yy = int(yy)
-                mm = int(mm)
-                dd = int(dd)
-                HH = int(HH)
-                MM = int(MM)
-                SS = float(SS)
-                ch = int(ch, 16)
-                tm = time.mktime((yy,mm,dd,HH,MM,0,0,0,0))
-                yield (tm+SS, chr(ch))
+            (t,_,c) = line.partition(' ')
+            if t and c:
+                yield (float(t), chr(int(c)))
     return
-                
-def match(text1, text2):
+
+class Match:
+
+    def __init__(self, ranges):
+        self.ranges = ranges
+        (_,i1,i2) = ranges[0]
+        self.s1 = i1
+        self.s2 = i2
+        (n,i1,i2) = ranges[-1]
+        self.e1 = i1+n
+        self.e2 = i2+n
+        assert self.s1 < self.e1
+        assert self.s2 < self.e2
+        self.n1 = self.e1 - self.s1
+        return
+
+    def getdist(self, m):
+        # must be non-overlapping and non-crossing.
+        if self.e1 <= m.s1 and self.e2 <= m.s2:
+            return (m.s1-self.e1 + m.s2-self.e2)
+        elif m.e1 <= self.s1 and m.e2 <= self.s2:
+            return (self.s1-m.e1 + self.s2-m.e2)
+        else:
+            return INF
+
+    def merge(self, m):
+        if self.e1 <= m.s1 and self.e2 <= m.s2:
+            return Match(self.ranges + m.ranges)
+        elif m.e1 <= self.s1 and m.e2 <= self.s2:
+            return Match(m.ranges + self.ranges)
+        else:
+            assert False
+            return None
+
+def getmatches(text1, text2):
     n1 = len(text1)
     n2 = len(text2)
+    sys.stderr.write('getmatches: n1=%d, n2=%d...\n' % (n1, n2))
     pairs = set()
-    r = []
+    matches = []
     for i1 in range(n1):
         i2 = 0
         while i2 < n2:
@@ -43,12 +66,37 @@ def match(text1, text2):
                     ia += 1
                     ib += 1
                     n += 1
-                r.append((n,i1,i2))
+                if 1 < n:
+                    matches.append(Match([(n,i1,i2)]))
                 i2 = ib
             else:
                 i2 += 1
-    r.sort()
-    return r
+    return matches
+
+def cluster(matches, gap=INF):
+    sys.stderr.write('cluster: %d matches' % len(matches))
+    matches.sort(key=lambda m:m.n1, reverse=True)
+    n = 0
+    for i in range(len(matches)-1, -1, -1):
+        m0 = matches[i]
+        (mj,dm) = (None,gap)
+        for j in range(i):
+            assert j < i
+            m1 = matches[j]
+            d1 = m1.getdist(m0)
+            if d1 < dm:
+                (mj,dm) = (j,d1)
+        if mj is not None:
+            del matches[i]
+            mm = matches[mj]
+            del matches[mj]
+            matches.append(m0.merge(mm))
+        n += 1
+        if (n % 100) == 0:
+            sys.stderr.write('.')
+            sys.stderr.flush()
+    sys.stderr.write('\n')
+    return matches
 
 def main(argv):
     import getopt
@@ -73,8 +121,14 @@ def main(argv):
     for path in args:
         with open(path, 'r') as fp:
             text2 = fp.read()
-            r = match(text1, text2)
-            print (len(r))
+        matches = getmatches(text1, text2)
+        n0 = INF
+        n1 = len(matches)
+        while n1 < n0:
+            matches = cluster(matches)
+            n0 = n1
+            n1 = len(matches)
+        print (matches)
     return 0
 
 if __name__ == '__main__': sys.exit(main(sys.argv))
