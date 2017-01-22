@@ -12,9 +12,7 @@ def readkeys(fp, title=None):
         elif line and ok:
             (t,_,c) = line.partition(' ')
             if t and c:
-                ch = chr(int(c))
-                if ch.isalnum():
-                    yield (float(t), ch)
+                yield (float(t), chr(int(c)))
     return
 
 class Match:
@@ -39,9 +37,9 @@ class Match:
     def getdist(self, m):
         # must be non-overlapping and non-crossing.
         if self.e1 <= m.s1 and self.e2 <= m.s2:
-            return (m.s1-self.e1 + m.s2-self.e2)
+            return max(m.s1-self.e1, m.s2-self.e2)
         elif m.e1 <= self.s1 and m.e2 <= self.s2:
-            return (self.s1-m.e1 + self.s2-m.e2)
+            return max(self.s1-m.e1, self.s2-m.e2)
         else:
             return INF
 
@@ -143,7 +141,7 @@ def main(argv):
         elif k == '-t': title = v
     if not args: return usage()
     with open(args.pop(0), 'r') as fp:
-        keys = list(readkeys(fp, title=title))
+        keys = list( (t,c) for (t,c) in readkeys(fp, title=title) if c.isalnum() )
     text1 = ''.join( c for (_,c) in keys )
     fp = fileinput.input(args)
     text2 = ''.join( fp )
