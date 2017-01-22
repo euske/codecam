@@ -35,6 +35,7 @@ typedef struct _Kiirogaa
     HICON iconKiirogaaOff;
     HWND focusHWnd;
     BOOL enabled;
+    BYTE keys[256];
 } Kiirogaa;
 
 static int openLogFile(Kiirogaa* self)
@@ -87,6 +88,25 @@ static void writeToLog(Kiirogaa* self, int c)
         self->logfp, L"%lld.%03d %d\n",
         SYSTEM2time(&st), st.wMilliseconds, c);
     fflush(self->logfp);
+}
+
+static void setKeyState(BYTE* keys, int vkCode, int flags)
+{
+    keys[vkCode] = flags;
+    switch (vkCode) {
+    case VK_LSHIFT:
+    case VK_RSHIFT:
+        keys[VK_SHIFT] = flags;
+        break;
+    case VK_LCONTROL:
+    case VK_RCONTROL:
+        keys[VK_CONTROL] = flags;
+        break;
+    case VK_LMENU:
+    case VK_RMENU:
+        keys[VK_MENU] = flags;
+        break;
+    }
 }
 
 
@@ -287,16 +307,20 @@ static LRESULT CALLBACK kiirogaaTrayWndProc(
         Kiirogaa* self = (Kiirogaa*)lp;
         if (self != NULL && self->enabled) {
             COPYDATASTRUCT* cds = (COPYDATASTRUCT*)lParam;
-            if (cds->cbData == sizeof(KBDLLHOOKSTRUCT) &&
-                cds->dwData == WM_KEYDOWN) {
+            if (cds->cbData == sizeof(KBDLLHOOKSTRUCT)) {
                 KBDLLHOOKSTRUCT* kdb = (KBDLLHOOKSTRUCT*)cds->lpData;
-                BYTE keys[256] = {0};
-                for (int i = 0; i < 256; i++) {
-                    keys[i] = (GetAsyncKeyState(i) & 0x8000)? 0x80 : 0x00;
-                }
                 WCHAR c;
-                if (0 < ToUnicode(kdb->vkCode, kdb->scanCode, keys, &c, 1, 0)) {
-                    writeToLog(self, c);
+                switch (cds->dwData) {
+                case WM_KEYDOWN:
+                    setKeyState(self->keys, kdb->vkCode, 0x80);
+                    if (0 < ToUnicode(kdb->vkCode, kdb->scanCode,
+                                      self->keys, &c, 1, 0)) {
+                        writeToLog(self, c);
+                    }
+                    break;
+                case WM_KEYUP:
+                    setKeyState(self->keys, kdb->vkCode, 0x00);
+                    break;
                 }
             }
         }
