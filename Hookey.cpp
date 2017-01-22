@@ -27,8 +27,10 @@ __declspec(dllexport) LRESULT KeyboardProcLL(
     if (nCode == HC_ACTION) {
         KBDLLHOOKSTRUCT* kdb = (KBDLLHOOKSTRUCT*)lParam;
         if (!(kdb->flags & LLKHF_INJECTED)) {
-            //fprintf(stderr, "wParam=%p, vkCode=%u, scanCode=%u, flags=0x%x\n", 
-            //        wParam, kdb->vkCode, kdb->scanCode, kdb->flags);
+#if !NDEBUG
+            fprintf(stderr, "wParam=%p, vkCode=%u, scanCode=%u, flags=0x%x\n", 
+                    wParam, kdb->vkCode, kdb->scanCode, kdb->flags);
+#endif
             if (_hWnd != NULL) {
                 COPYDATASTRUCT cds = {0};
                 cds.dwData = wParam;
