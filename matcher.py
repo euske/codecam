@@ -52,7 +52,7 @@ class Match:
             assert False
             return None
 
-def getmatches(text1, text2):
+def getmatches(text1, text2, minchars=2):
     n1 = len(text1)
     n2 = len(text2)
     sys.stderr.write('getmatches: n1=%d, n2=%d...\n' % (n1, n2))
@@ -70,20 +70,20 @@ def getmatches(text1, text2):
                     ia += 1
                     ib += 1
                     n += 1
-                if 1 < n:
+                if minchars <= n:
                     matches.append(Match([(n,i1,i2)]))
                 i2 = ib
             else:
                 i2 += 1
     return matches
 
-def cluster(matches, gap=INF):
+def cluster(matches, mindist=INF):
     sys.stderr.write('cluster: %d matches' % len(matches))
     matches.sort(key=lambda m:m.n, reverse=True)
     n = 0
     for i in range(len(matches)-1, -1, -1):
         m0 = matches[i]
-        (mj,dm) = (None,gap)
+        (mj,dm) = (None,mindist)
         for j in range(i):
             assert j < i
             m1 = matches[j]
@@ -103,6 +103,7 @@ def cluster(matches, gap=INF):
     return matches
 
 class Taken(Exception): pass
+
 def fixate(matches):
     matches.sort(key=lambda m:(m.n,m.e1), reverse=True)
     maps = {}
