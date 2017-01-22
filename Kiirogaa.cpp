@@ -38,26 +38,7 @@ typedef struct _Kiirogaa
     BYTE keys[256];
 } Kiirogaa;
 
-static int openLogFile(Kiirogaa* self)
-{
-    if (self->logPath[0] == '\0') {
-        self->logfp = stderr;
-        return 0;
-    } else {
-        return _wfopen_s(&self->logfp, self->logPath, L"a");
-    }
-}
-
-static void closeLogFile(Kiirogaa* self)
-{
-    if (self->logfp == stderr) {
-        ;
-    } else if (self->logfp != NULL) {
-        fclose(self->logfp);
-        self->logfp = NULL;
-    }
-}
-
+// SYSTEM2time: Returns the current time in time_t.
 static time_t SYSTEM2time(const SYSTEMTIME* st)
 {
     struct tm tm = {0};
@@ -70,26 +51,7 @@ static time_t SYSTEM2time(const SYSTEMTIME* st)
     return mktime(&tm);
 }
 
-// writeToLog(self, c)
-static void writeToLog(Kiirogaa* self, int c)
-{
-    HWND focusHWnd = GetForegroundWindow();
-    if (self->focusHWnd != focusHWnd) {
-        self->focusHWnd = focusHWnd;
-        WCHAR name[256];
-        if (GetClassName(focusHWnd, name, 255)) {
-            fwprintf(self->logfp, L"# %s\n", name);
-        }
-    }
-    
-    SYSTEMTIME st;
-    GetLocalTime(&st);
-    fwprintf(
-        self->logfp, L"%lld.%03d %d\n",
-        SYSTEM2time(&st), st.wMilliseconds, c);
-    fflush(self->logfp);
-}
-
+// setKeyState: Set the keyboard states for a virtual key.
 static void setKeyState(BYTE* keys, int vkCode, int flags)
 {
     keys[vkCode] = flags;
@@ -107,6 +69,48 @@ static void setKeyState(BYTE* keys, int vkCode, int flags)
         keys[VK_MENU] = flags;
         break;
     }
+}
+
+// openLogFile: Open the log file with exclusive access.
+static int openLogFile(Kiirogaa* self)
+{
+    if (self->logPath[0] == '\0') {
+        self->logfp = stderr;
+        return 0;
+    } else {
+        return _wfopen_s(&self->logfp, self->logPath, L"a");
+    }
+}
+
+// closeLogFile: Close the log file.
+static void closeLogFile(Kiirogaa* self)
+{
+    if (self->logfp == stderr) {
+        ;
+    } else if (self->logfp != NULL) {
+        fclose(self->logfp);
+        self->logfp = NULL;
+    }
+}
+
+// writeToLog(self, c): Write a keylog entry.
+static void writeToLog(Kiirogaa* self, int c)
+{
+    HWND focusHWnd = GetForegroundWindow();
+    if (self->focusHWnd != focusHWnd) {
+        self->focusHWnd = focusHWnd;
+        WCHAR name[256];
+        if (GetClassName(focusHWnd, name, 255)) {
+            fwprintf(self->logfp, L"# %s\n", name);
+        }
+    }
+    
+    SYSTEMTIME st;
+    GetLocalTime(&st);
+    fwprintf(
+        self->logfp, L"%lld.%03d %d\n",
+        SYSTEM2time(&st), st.wMilliseconds, c);
+    fflush(self->logfp);
 }
 
 
