@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 import sys
+from bisect import bisect_left
+from bisect import bisect_right
+from bisect import insort
 INF = sys.maxsize
 
 def readkeys(fp, title=None):
@@ -49,8 +52,7 @@ class Match:
         elif m.e1 <= self.s1 and m.e2 <= self.s2:
             return Match(m.ranges + self.ranges)
         else:
-            assert False
-            return None
+            raise ValueError(m)
 
 def getmatches(text1, text2, minchars=2):
     n1 = len(text1)
@@ -77,24 +79,111 @@ def getmatches(text1, text2, minchars=2):
                 i2 += 1
     return matches
 
+class Index:
+
+    """
+    >>> idx = Index()
+    >>> idx.add(1, 'moo')
+    >>> idx.add(5, 'baa')
+    >>> idx.build()
+    >>> idx.search(0,2)
+    ['moo']
+    >>> idx.search(1,2)
+    ['moo']
+    >>> idx.search(1,1)
+    ['moo']
+    >>> idx.search(2,2)
+    []
+    >>> idx.search(3,10)
+    ['baa']
+    >>> idx.search(0,5)
+    ['moo', 'baa']
+    >>> idx.search(10,5)
+    []
+    >>> idx.remove(5, 'baa')
+    >>> idx.build()
+    >>> idx.search(3,10)
+    []
+    """
+
+    def __init__(self):
+        self.objs = {}
+        self._idxs = []
+        return
+
+    def add(self, v, obj, batch=False):
+        if v in self.objs:
+            r = self.objs[v]
+        else:
+            r = self.objs[v] = []
+            if batch:
+                self._idxs = None
+            else:
+                insort(self._idxs, v)
+        r.append(obj)
+        return
+
+    def remove(self, v, obj, batch=False):
+        if v in self.objs:
+            self.objs[v].remove(obj)
+            if batch:
+                self._idxs = None
+            else:
+                i = bisect_left(self._idxs, v)
+                del self._idxs[i]
+        return
+
+    def build(self):
+        self._idxs = sorted(self.objs.keys())
+        return
+
+    def search(self, v0, v1):
+        assert self._idxs is not None
+        i0 = bisect_left(self._idxs, v0)
+        i1 = bisect_right(self._idxs, v1)
+        r = set()
+        for i in range(i0, i1):
+            v = self._idxs[i]
+            assert v in self.objs
+            r.update(self.objs[v])
+        return r
+
+
 def cluster(matches, mindist=INF):
     sys.stderr.write('cluster: %d matches' % len(matches))
     matches.sort(key=lambda m:m.n, reverse=True)
+    idx1 = Index()
+    idx2 = Index()
+    for m in matches:
+        idx1.add(m.s1, m, batch=True)
+        idx1.add(m.e1, m, batch=True)
+        idx2.add(m.s2, m, batch=True)
+        idx2.add(m.e2, m, batch=True)
+    idx1.build()
+    idx2.build()
     n = 0
-    for i in range(len(matches)-1, -1, -1):
-        m0 = matches[i]
-        (mj,dm) = (None,mindist)
-        for j in range(i):
-            assert j < i
-            m1 = matches[j]
+    for m0 in matches[:]:
+        r1 = idx1.search(m0.s1-mindist, m0.e1+mindist)
+        r2 = idx2.search(m0.s2-mindist, m0.e2+mindist)
+        (mm,dm) = (None,mindist)
+        for m1 in r1.union(r2):
+            if m1 is m0: continue
             d1 = m1.getdist(m0)
             if d1 < dm:
-                (mj,dm) = (j,d1)
-        if mj is not None:
-            del matches[i]
-            mm = matches[mj]
-            del matches[mj]
-            matches.append(m0.merge(mm))
+                (mm,dm) = (m1,d1)
+        if mm is not None:
+            matches.remove(m0)
+            matches.remove(mm)
+            idx1.remove(mm.s1, mm)
+            idx1.remove(mm.e1, mm)
+            idx2.remove(mm.s2, mm)
+            idx2.remove(mm.e2, mm)
+            m3 = m0.merge(mm)
+            matches.append(m3)
+            idx1.add(m3.s1, m3)
+            idx1.add(m3.e1, m3)
+            idx2.add(m3.s2, m3)
+            idx2.add(m3.e2, m3)
         n += 1
         if (n % 100) == 0:
             sys.stderr.write('.')
@@ -102,7 +191,7 @@ def cluster(matches, mindist=INF):
     sys.stderr.write('\n')
     return matches
 
-class Taken(Exception): pass
+class Taken(ValueError): pass
 
 def fixate(matches):
     matches.sort(key=lambda m:(m.n,m.e1), reverse=True)
