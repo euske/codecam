@@ -85,52 +85,64 @@ class Index:
     >>> idx = Index()
     >>> idx.add(1, 'moo')
     >>> idx.add(5, 'baa')
-    >>> idx.build()
     >>> idx.search(0,2)
-    ['moo']
+    {'moo'}
     >>> idx.search(1,2)
-    ['moo']
+    {'moo'}
     >>> idx.search(1,1)
-    ['moo']
+    {'moo'}
     >>> idx.search(2,2)
-    []
+    set()
     >>> idx.search(3,10)
-    ['baa']
-    >>> idx.search(0,5)
-    ['moo', 'baa']
+    {'baa'}
+    >>> sorted(idx.search(0,5))
+    ['baa', 'moo']
     >>> idx.search(10,5)
-    []
+    set()
     >>> idx.remove(5, 'baa')
-    >>> idx.build()
     >>> idx.search(3,10)
-    []
+    set()
     """
 
-    def __init__(self):
+    def __init__(self, name=None):
+        self.name = name
         self.objs = {}
         self._idxs = []
         return
 
+    def __repr__(self):
+        return '<%s: %s>' % (self.__class__.__name__, self.name)
+
+    def __len__(self):
+        return sum( len(r) for r in self.objs.values() )
+
     def add(self, v, obj, batch=False):
         if v in self.objs:
-            r = self.objs[v]
+            self.objs[v].append(obj)
         else:
-            r = self.objs[v] = []
+            self.objs[v] = [obj]
             if batch:
                 self._idxs = None
             else:
+                assert v not in self._idxs
                 insort(self._idxs, v)
-        r.append(obj)
+                assert v in self._idxs
         return
 
     def remove(self, v, obj, batch=False):
-        if v in self.objs:
-            self.objs[v].remove(obj)
-            if batch:
-                self._idxs = None
-            else:
-                i = bisect_left(self._idxs, v)
-                del self._idxs[i]
+        if v not in self.objs:
+            raise KeyError(v)
+        r = self.objs[v]
+        r.remove(obj)
+        if r: return
+        del self.objs[v]
+        if batch:
+            self._idxs = None
+        else:
+            assert v in self._idxs
+            i = bisect_left(self._idxs, v)
+            assert self._idxs[i] == v
+            del self._idxs[i]
         return
 
     def build(self):
@@ -150,10 +162,10 @@ class Index:
 
 
 def cluster(matches, mindist=INF):
-    sys.stderr.write('cluster: %d matches' % len(matches))
+    sys.stderr.write('building index...\n')
     matches.sort(key=lambda m:m.n, reverse=True)
-    idx1 = Index()
-    idx2 = Index()
+    idx1 = Index('idx1')
+    idx2 = Index('idx2')
     for m in matches:
         idx1.add(m.s1, m, batch=True)
         idx1.add(m.e1, m, batch=True)
@@ -161,25 +173,36 @@ def cluster(matches, mindist=INF):
         idx2.add(m.e2, m, batch=True)
     idx1.build()
     idx2.build()
+    assert len(idx1) == len(matches)*2
+    assert len(idx2) == len(matches)*2
+    sys.stderr.write('clustering: %d matches' % len(matches))
+    sys.stderr.flush()
     n = 0
-    for m0 in matches[:]:
-        r1 = idx1.search(m0.s1-mindist, m0.e1+mindist)
-        r2 = idx2.search(m0.s2-mindist, m0.e2+mindist)
-        (mm,dm) = (None,mindist)
-        for m1 in r1.union(r2):
-            if m1 is m0: continue
-            d1 = m1.getdist(m0)
-            if d1 < dm:
-                (mm,dm) = (m1,d1)
-        if mm is not None:
-            matches.remove(m0)
-            matches.remove(mm)
-            idx1.remove(mm.s1, mm)
-            idx1.remove(mm.e1, mm)
-            idx2.remove(mm.s2, mm)
-            idx2.remove(mm.e2, mm)
-            m3 = m0.merge(mm)
-            matches.append(m3)
+    finished = []
+    while matches:
+        m0 = matches.pop(0)
+        idx1.remove(m0.s1, m0)
+        idx1.remove(m0.e1, m0)
+        idx2.remove(m0.s2, m0)
+        idx2.remove(m0.e2, m0)
+        ra = idx1.search(m0.s1-mindist, m0.e1+mindist)
+        rb = idx2.search(m0.s2-mindist, m0.e2+mindist)
+        (m1,d1) = (None,mindist)
+        for m in ra.union(rb):
+            assert m is not m0
+            d = m.getdist(m0)
+            if d < d1:
+                (m1,d1) = (m,d)
+        if m1 is None:
+            finished.append(m0)
+        else:
+            matches.remove(m1)
+            idx1.remove(m1.s1, m1)
+            idx1.remove(m1.e1, m1)
+            idx2.remove(m1.s2, m1)
+            idx2.remove(m1.e2, m1)
+            m3 = m1.merge(m0)
+            matches.insert(0, m3)
             idx1.add(m3.s1, m3)
             idx1.add(m3.e1, m3)
             idx2.add(m3.s2, m3)
@@ -189,7 +212,7 @@ def cluster(matches, mindist=INF):
             sys.stderr.write('.')
             sys.stderr.flush()
     sys.stderr.write('\n')
-    return matches
+    return finished
 
 class Taken(ValueError): pass
 
