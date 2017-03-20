@@ -21,9 +21,41 @@ def readkeys(fp, title=None):
                 yield (t, c)
     return
 
+class Corpus:
+
+    def __init__(self, text1, text2):
+        self.text1 = text1
+        self.text2 = text2
+        return
+
+    def getmatches(self, minchars=2):
+        n1 = len(self.text1)
+        n2 = len(self.text2)
+        sys.stderr.write('getmatches: n1=%d, n2=%d...\n' % (n1, n2))
+        pairs = set()
+        for i1 in range(n1):
+            i2 = 0
+            while i2 < n2:
+                if self.text1[i1] == self.text2[i2] and (i1,i2) not in pairs:
+                    ia = i1
+                    ib = i2
+                    n = 0
+                    while ia < n1 and ib < n2 and self.text1[ia] == self.text2[ib]:
+                        pairs.add((ia,ib))
+                        ia += 1
+                        ib += 1
+                        n += 1
+                    if minchars <= n:
+                        yield Match(self, [(n,i1,i2)])
+                    i2 = ib
+                else:
+                    i2 += 1
+        return
+
 class Match:
 
-    def __init__(self, ranges):
+    def __init__(self, corpus, ranges):
+        self.corpus = corpus
         self.ranges = ranges
         (_,i1,i2) = ranges[0]
         self.s1 = i1
@@ -40,47 +72,45 @@ class Match:
         return ('<Match(%d) %d-%d : %d-%d>' %
                 (self.n, self.s1, self.e1, self.s2, self.e2))
 
+    def text1(self):
+        i0 = None
+        for (n,i1,_) in self.ranges:
+            if i0 is not None:
+                yield self.corpus.text1[i0:i1]
+            i0 = i1+n
+            yield '['+self.corpus.text1[i1:i0]+']'
+        return
+
+    def text2(self):
+        i0 = None
+        for (n,_,i1) in self.ranges:
+            if i0 is not None:
+                yield self.corpus.text2[i0:i1]
+            i0 = i1+n
+            yield '['+self.corpus.text2[i1:i0]+']'
+        return
+
+    def dump(self):
+        print (''.join(self.text1()))
+        print (''.join(self.text2()))
+        return
+
     def getdist(self, m):
         # must be non-overlapping and non-crossing.
         if self.e1 <= m.s1 and self.e2 <= m.s2:
-            return max(m.s1-self.e1, m.s2-self.e2)
+            return (m.s1-self.e1)+(m.s2-self.e2)
         elif m.e1 <= self.s1 and m.e2 <= self.s2:
-            return max(self.s1-m.e1, self.s2-m.e2)
+            return (self.s1-m.e1)+(self.s2-m.e2)
         else:
             return INF
 
     def merge(self, m):
         if self.e1 <= m.s1 and self.e2 <= m.s2:
-            return Match(self.ranges + m.ranges)
+            return Match(self.corpus, self.ranges + m.ranges)
         elif m.e1 <= self.s1 and m.e2 <= self.s2:
-            return Match(m.ranges + self.ranges)
+            return Match(self.corpus, m.ranges + self.ranges)
         else:
             raise ValueError(m)
-
-def getmatches(text1, text2, minchars=2):
-    n1 = len(text1)
-    n2 = len(text2)
-    sys.stderr.write('getmatches: n1=%d, n2=%d...\n' % (n1, n2))
-    pairs = set()
-    matches = []
-    for i1 in range(n1):
-        i2 = 0
-        while i2 < n2:
-            if text1[i1] == text2[i2] and (i1,i2) not in pairs:
-                ia = i1
-                ib = i2
-                n = 0
-                while ia < n1 and ib < n2 and text1[ia] == text2[ib]:
-                    pairs.add((ia,ib))
-                    ia += 1
-                    ib += 1
-                    n += 1
-                if minchars <= n:
-                    matches.append(Match([(n,i1,i2)]))
-                i2 = ib
-            else:
-                i2 += 1
-    return matches
 
 class Index:
 
@@ -206,8 +236,9 @@ def cluster(matches, mindist=INF):
             idx2.remove(m1.s2, m1)
             idx2.remove(m1.e2, m1)
             m2 = m1.merge(m0)
-            print ('merge', m0, m1, m2)
-            matches.insert(0, m2)
+            #print ('merge', m0, m1, m2)
+            #m2.dump()
+            matches.append(m2)
             idx1.add(m2.s1, m2)
             idx1.add(m2.e1, m2)
             idx2.add(m2.s2, m2)
@@ -261,7 +292,8 @@ def main(argv):
     text1 = ''.join( c for (_,c) in keys )
     fp = fileinput.input(args)
     text2 = ''.join( fp )
-    matches = getmatches(text1, text2)
+    corpus = Corpus(text1, text2)
+    matches = list(corpus.getmatches())
     if 1:
         n0 = INF
         n1 = len(matches)
@@ -275,7 +307,6 @@ def main(argv):
         for (n,i1,i2) in m.ranges:
             for d in range(n):
                 maps[i2+d] = i1+d
-        print (m, text1[m.s1:m.s1+m.n])
     for (i2,c) in enumerate(text2):
         if i2 in maps:
             i1 = maps[i2]
