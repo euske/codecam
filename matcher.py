@@ -13,9 +13,12 @@ def readkeys(fp, title=None):
             (_,_,s) = line.partition(' ')
             ok = (title is None or s == title)
         elif line and ok:
-            (t,_,c) = line.partition(' ')
+            (line,_,_) = line.partition('#')
+            (t,_,c) = line.strip().partition(' ')
             if t and c:
-                yield (float(t), chr(int(c)))
+                t = float(t)
+                c = chr(int(c))
+                yield (t, c)
     return
 
 class Match:
@@ -34,8 +37,8 @@ class Match:
         return
 
     def __repr__(self):
-        return ('<Match(%d-%d, %d-%d)>' %
-                (self.s1, self.e1, self.s2, self.e2))
+        return ('<Match(%d) %d-%d : %d-%d>' %
+                (self.n, self.s1, self.e1, self.s2, self.e2))
 
     def getdist(self, m):
         # must be non-overlapping and non-crossing.
@@ -162,7 +165,7 @@ class Index:
 
 
 def cluster(matches, mindist=INF):
-    sys.stderr.write('building index...\n')
+    #sys.stderr.write('building index...\n')
     matches.sort(key=lambda m:m.n, reverse=True)
     idx1 = Index('idx1')
     idx2 = Index('idx2')
@@ -195,18 +198,20 @@ def cluster(matches, mindist=INF):
                 (m1,d1) = (m,d)
         if m1 is None:
             finished.append(m0)
+            return finished
         else:
             matches.remove(m1)
             idx1.remove(m1.s1, m1)
             idx1.remove(m1.e1, m1)
             idx2.remove(m1.s2, m1)
             idx2.remove(m1.e2, m1)
-            m3 = m1.merge(m0)
-            matches.insert(0, m3)
-            idx1.add(m3.s1, m3)
-            idx1.add(m3.e1, m3)
-            idx2.add(m3.s2, m3)
-            idx2.add(m3.e2, m3)
+            m2 = m1.merge(m0)
+            print ('merge', m0, m1, m2)
+            matches.insert(0, m2)
+            idx1.add(m2.s1, m2)
+            idx1.add(m2.e1, m2)
+            idx2.add(m2.s2, m2)
+            idx2.add(m2.e2, m2)
         n += 1
         if (n % 100) == 0:
             sys.stderr.write('.')
@@ -218,24 +223,22 @@ class Taken(ValueError): pass
 
 def fixate(matches):
     matches.sort(key=lambda m:(m.n,m.e1), reverse=True)
-    maps = {}
     taken1 = set()
     taken2 = set()
     for m in matches:
         try:
             r = []
             for (n,i1,i2) in m.ranges:
-                for i in range(n):
-                    if i1+i in taken1: raise Taken()
-                    if i2+i in taken2: raise Taken()
-                    r.append((i1+i, i2+i))
+                for d in range(n):
+                    if i1+d in taken1: raise Taken()
+                    if i2+d in taken2: raise Taken()
+                    r.append((i1+d, i2+d))
             taken1.update( i1 for (i1,_) in r )
             taken2.update( i2 for (_,i2) in r )
-            for (i1,i2) in r:
-                maps[i2] = i1
+            yield m
         except Taken:
             pass
-    return maps
+    return
 
 def main(argv):
     import getopt
@@ -259,13 +262,20 @@ def main(argv):
     fp = fileinput.input(args)
     text2 = ''.join( fp )
     matches = getmatches(text1, text2)
-    n0 = INF
-    n1 = len(matches)
-    while n1 < n0:
-        matches = cluster(matches)
-        n0 = n1
+    if 1:
+        n0 = INF
         n1 = len(matches)
-    maps = fixate(matches)
+        while n1 < n0:
+            matches = cluster(matches)
+            n0 = n1
+            n1 = len(matches)
+    matches = list(fixate(matches))
+    maps = {}
+    for m in matches:
+        for (n,i1,i2) in m.ranges:
+            for d in range(n):
+                maps[i2+d] = i1+d
+        print (m, text1[m.s1:m.s1+m.n])
     for (i2,c) in enumerate(text2):
         if i2 in maps:
             i1 = maps[i2]
