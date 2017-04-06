@@ -5,6 +5,9 @@ from bisect import bisect_right
 from bisect import insort
 INF = sys.maxsize
 
+def isok(c):
+    return c.isalnum()
+
 def readkeys(fp, title=None):
     ok = True
     for line in fp:
@@ -36,11 +39,14 @@ class Corpus:
         for i1 in range(n1):
             i2 = 0
             while i2 < n2:
-                if self.text1[i1] == self.text2[i2] and (i1,i2) not in pairs:
+                if (isok(self.text1[i1]) and
+                    self.text1[i1] == self.text2[i2] and
+                    (i1,i2) not in pairs):
                     ia = i1
                     ib = i2
                     n = 0
-                    while ia < n1 and ib < n2 and self.text1[ia] == self.text2[ib]:
+                    while (ia < n1 and ib < n2 and isok(self.text1[ia]) and
+                           self.text1[ia] == self.text2[ib]):
                         pairs.add((ia,ib))
                         ia += 1
                         ib += 1
@@ -66,6 +72,7 @@ class Match:
         assert self.s1 < self.e1
         assert self.s2 < self.e2
         self.n = sum( n for (n,_,_) in ranges )
+        self.n -= (self.e2-self.s2-self.n + self.e1-self.s1-self.n)
         return
 
     def __repr__(self):
@@ -91,8 +98,8 @@ class Match:
         return
 
     def dump(self):
-        print (''.join(self.text1()))
-        print (''.join(self.text2()))
+        print (repr(''.join(self.text1())))
+        print (repr(''.join(self.text2())))
         return
 
     def getdist(self, m):
@@ -228,7 +235,6 @@ def cluster(matches, mindist=INF):
                 (m1,d1) = (m,d)
         if m1 is None:
             finished.append(m0)
-            return finished
         else:
             matches.remove(m1)
             idx1.remove(m1.s1, m1)
@@ -236,13 +242,13 @@ def cluster(matches, mindist=INF):
             idx2.remove(m1.s2, m1)
             idx2.remove(m1.e2, m1)
             m2 = m1.merge(m0)
-            #print ('merge', m0, m1, m2)
-            #m2.dump()
-            matches.append(m2)
-            idx1.add(m2.s1, m2)
-            idx1.add(m2.e1, m2)
-            idx2.add(m2.s2, m2)
-            idx2.add(m2.e2, m2)
+            print ('merge', m1.getdist(m0), m0, m1, m2)
+            m2.dump()
+            finished.append(m2)
+            #idx1.add(m2.s1, m2)
+            #idx1.add(m2.e1, m2)
+            #idx2.add(m2.s2, m2)
+            #idx2.add(m2.e2, m2)
         n += 1
         if (n % 100) == 0:
             sys.stderr.write('.')
@@ -275,20 +281,22 @@ def main(argv):
     import getopt
     import fileinput
     def usage():
-        print('usage: %s [-d] [-t title] logfile [file ...]' % argv[0])
+        print('usage: %s [-d] [-t title] [-m mindist] logfile [file ...]' % argv[0])
         return 100
     try:
-        (opts, args) = getopt.getopt(argv[1:], 'dt:')
+        (opts, args) = getopt.getopt(argv[1:], 'dt:m:')
     except getopt.GetoptError:
         return usage()
     debug = 0
     title = None
+    mindist = INF
     for (k, v) in opts:
         if k == '-d': debug += 1
         elif k == '-t': title = v
+        elif k == '-m': mindist = int(v)
     if not args: return usage()
     with open(args.pop(0), 'r') as fp:
-        keys = list( (t,c) for (t,c) in readkeys(fp, title=title) if c.isalnum() )
+        keys = list(readkeys(fp, title=title))
     text1 = ''.join( c for (_,c) in keys )
     fp = fileinput.input(args)
     text2 = ''.join( fp )
@@ -298,7 +306,7 @@ def main(argv):
         n0 = INF
         n1 = len(matches)
         while n1 < n0:
-            matches = cluster(matches)
+            matches = cluster(matches, mindist=mindist)
             n0 = n1
             n1 = len(matches)
     matches = list(fixate(matches))
