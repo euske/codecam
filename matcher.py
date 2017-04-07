@@ -24,101 +24,6 @@ def readkeys(fp, title=None):
                 yield (t, c)
     return
 
-class Corpus:
-
-    def __init__(self, text1, text2):
-        self.text1 = text1
-        self.text2 = text2
-        return
-
-    def getmatches(self, minchars=2):
-        n1 = len(self.text1)
-        n2 = len(self.text2)
-        sys.stderr.write('getmatches: n1=%d, n2=%d...\n' % (n1, n2))
-        pairs = set()
-        for i1 in range(n1):
-            i2 = 0
-            while i2 < n2:
-                if (isok(self.text1[i1]) and
-                    self.text1[i1] == self.text2[i2] and
-                    (i1,i2) not in pairs):
-                    ia = i1
-                    ib = i2
-                    n = 0
-                    while (ia < n1 and ib < n2 and isok(self.text1[ia]) and
-                           self.text1[ia] == self.text2[ib]):
-                        pairs.add((ia,ib))
-                        ia += 1
-                        ib += 1
-                        n += 1
-                    if minchars <= n:
-                        yield Match(self, [(n,i1,i2)])
-                    i2 = ib
-                else:
-                    i2 += 1
-        return
-
-class Match:
-
-    def __init__(self, corpus, ranges):
-        self.corpus = corpus
-        self.ranges = ranges
-        (_,i1,i2) = ranges[0]
-        self.s1 = i1
-        self.s2 = i2
-        (n,i1,i2) = ranges[-1]
-        self.e1 = i1+n
-        self.e2 = i2+n
-        assert self.s1 < self.e1
-        assert self.s2 < self.e2
-        self.n = sum( n for (n,_,_) in ranges )
-        self.n -= (self.e2-self.s2-self.n + self.e1-self.s1-self.n)
-        return
-
-    def __repr__(self):
-        return ('<Match(%d) %d-%d : %d-%d>' %
-                (self.n, self.s1, self.e1, self.s2, self.e2))
-
-    def text1(self):
-        i0 = None
-        for (n,i1,_) in self.ranges:
-            if i0 is not None:
-                yield self.corpus.text1[i0:i1]
-            i0 = i1+n
-            yield '['+self.corpus.text1[i1:i0]+']'
-        return
-
-    def text2(self):
-        i0 = None
-        for (n,_,i1) in self.ranges:
-            if i0 is not None:
-                yield self.corpus.text2[i0:i1]
-            i0 = i1+n
-            yield '['+self.corpus.text2[i1:i0]+']'
-        return
-
-    def dump(self):
-        print (repr(''.join(self.text1())))
-        print (repr(''.join(self.text2())))
-        return
-
-    def getdist(self, m):
-        # must be non-overlapping and non-crossing.
-        if self.e1 <= m.s1 and self.e2 <= m.s2:
-            return (m.s1-self.e1)+(m.s2-self.e2)
-        elif m.e1 <= self.s1 and m.e2 <= self.s2:
-            return (self.s1-m.e1)+(self.s2-m.e2)
-        else:
-            return INF
-
-    def merge(self, m):
-        if self.e1 <= m.s1 and self.e2 <= m.s2:
-            return Match(self.corpus, self.ranges + m.ranges)
-        elif m.e1 <= self.s1 and m.e2 <= self.s2:
-            return Match(self.corpus, m.ranges + self.ranges)
-        else:
-            raise ValueError(m)
-
 class Index:
 
     """
@@ -200,66 +105,160 @@ class Index:
             r.update(self.objs[v])
         return r
 
+class Corpus:
+
+    def __init__(self, text1, text2):
+        self.text1 = text1
+        self.text2 = text2
+        return
+
+    def getmatches(self, minchars=2):
+        n1 = len(self.text1)
+        n2 = len(self.text2)
+        sys.stderr.write('getmatches: n1=%d, n2=%d...\n' % (n1, n2))
+        pairs = set()
+        for i1 in range(n1):
+            i2 = 0
+            while i2 < n2:
+                if (isok(self.text1[i1]) and
+                    self.text1[i1] == self.text2[i2] and
+                    (i1,i2) not in pairs):
+                    ia = i1
+                    ib = i2
+                    n = 0
+                    while (ia < n1 and ib < n2 and isok(self.text1[ia]) and
+                           self.text1[ia] == self.text2[ib]):
+                        pairs.add((ia,ib))
+                        ia += 1
+                        ib += 1
+                        n += 1
+                    if minchars <= n:
+                        yield Match(self, [(n,i1,i2)])
+                    i2 = ib
+                else:
+                    i2 += 1
+        return
+
+class Match:
+
+    def __init__(self, corpus, ranges):
+        self.corpus = corpus
+        self.ranges = ranges
+        (_,i1,i2) = ranges[0]
+        self.s1 = i1
+        self.s2 = i2
+        (n,i1,i2) = ranges[-1]
+        self.e1 = i1+n
+        self.e2 = i2+n
+        assert self.s1 < self.e1
+        assert self.s2 < self.e2
+        self.common = sum( n for (n,_,_) in ranges )
+        gap = (self.e1-self.s1-self.common + self.e2-self.s2-self.common)
+        self.score = self.common - gap
+        return
+
+    def __repr__(self):
+        return ('<Match(%d) %d-%d : %d-%d>' %
+                (self.score, self.s1, self.e1, self.s2, self.e2))
+
+    def text1(self):
+        i0 = None
+        for (n,i1,_) in self.ranges:
+            if i0 is not None:
+                yield self.corpus.text1[i0:i1]
+            i0 = i1+n
+            yield '['+self.corpus.text1[i1:i0]+']'
+        return
+
+    def text2(self):
+        i0 = None
+        for (n,_,i1) in self.ranges:
+            if i0 is not None:
+                yield self.corpus.text2[i0:i1]
+            i0 = i1+n
+            yield '['+self.corpus.text2[i1:i0]+']'
+        return
+
+    def dump(self):
+        print (repr(''.join(self.text1())))
+        print (repr(''.join(self.text2())))
+        return
+
+    def getscore(self, m):
+        # must be non-overlapping and non-crossing.
+        common = self.common + m.common
+        if self.e1 <= m.s1 and self.e2 <= m.s2:
+            # self <= m
+            return common - (m.e1-self.s1-common + m.e2-self.s2-common)
+        elif m.e1 <= self.s1 and m.e2 <= self.s2:
+            # m <= self
+            return common - (self.e1-m.s1-common + self.e2-m.s2-common)
+        else:
+            return -1
+
+    def merge(self, m):
+        if self.e1 <= m.s1 and self.e2 <= m.s2:
+            return Match(self.corpus, self.ranges + m.ranges)
+        elif m.e1 <= self.s1 and m.e2 <= self.s2:
+            return Match(self.corpus, m.ranges + self.ranges)
+        else:
+            raise ValueError(m)
 
 def cluster(matches, mindist=INF):
     #sys.stderr.write('building index...\n')
-    matches.sort(key=lambda m:m.n, reverse=True)
+    matches.sort(key=lambda m:m.score, reverse=True)
     idx1 = Index('idx1')
     idx2 = Index('idx2')
-    for m in matches:
-        idx1.add(m.s1, m, batch=True)
-        idx1.add(m.e1, m, batch=True)
-        idx2.add(m.s2, m, batch=True)
-        idx2.add(m.e2, m, batch=True)
+    for (i,m) in enumerate(matches):
+        idx1.add(m.s1, i, batch=True)
+        idx1.add(m.e1, i, batch=True)
+        idx2.add(m.s2, i, batch=True)
+        idx2.add(m.e2, i, batch=True)
     idx1.build()
     idx2.build()
     assert len(idx1) == len(matches)*2
     assert len(idx2) == len(matches)*2
     sys.stderr.write('clustering: %d matches' % len(matches))
     sys.stderr.flush()
+
+    pairs = []
     n = 0
-    finished = []
-    while matches:
-        m0 = matches.pop(0)
-        idx1.remove(m0.s1, m0)
-        idx1.remove(m0.e1, m0)
-        idx2.remove(m0.s2, m0)
-        idx2.remove(m0.e2, m0)
+    for (i,m0) in enumerate(matches):
         ra = idx1.search(m0.s1-mindist, m0.e1+mindist)
         rb = idx2.search(m0.s2-mindist, m0.e2+mindist)
-        (m1,d1) = (None,mindist)
-        for m in ra.union(rb):
-            assert m is not m0
-            d = m.getdist(m0)
-            if d < d1:
-                (m1,d1) = (m,d)
-        if m1 is None:
-            finished.append(m0)
-        else:
-            matches.remove(m1)
-            idx1.remove(m1.s1, m1)
-            idx1.remove(m1.e1, m1)
-            idx2.remove(m1.s2, m1)
-            idx2.remove(m1.e2, m1)
-            m2 = m1.merge(m0)
-            print ('merge', m1.getdist(m0), m0, m1, m2)
-            m2.dump()
-            finished.append(m2)
-            #idx1.add(m2.s1, m2)
-            #idx1.add(m2.e1, m2)
-            #idx2.add(m2.s2, m2)
-            #idx2.add(m2.e2, m2)
+        (m1,s1) = (None, m0.score)
+        for j in ra.union(rb):
+            if i < j:
+                m = matches[j]
+                s = m.getscore(m0)
+                if m.score < s and s1 < s:
+                    (m1,s1) = (m,s)
+        if m1 is not None:
+            if i < matches.index(m1):
+                pairs.append((s1,(m0,m1)))
         n += 1
         if (n % 100) == 0:
             sys.stderr.write('.')
             sys.stderr.flush()
     sys.stderr.write('\n')
-    return finished
+    pairs.sort(key=lambda x: x[0], reverse=True)
+    
+    finished = []
+    taken = set()
+    for (_,(m0,m1)) in pairs:
+        if m0 not in taken and m1 not in taken:
+            taken.add(m0)
+            taken.add(m1)
+            finished.append(m1.merge(m0))
+    return finished + [ m for m in matches if m not in taken ]
 
 class Taken(ValueError): pass
 
 def fixate(matches):
-    matches.sort(key=lambda m:(m.n,m.e1), reverse=True)
+    matches.sort(key=lambda m:(m.score, m.e1), reverse=True)
+    for m in matches:
+        print (m)
+        m.dump()
     taken1 = set()
     taken2 = set()
     for m in matches:
