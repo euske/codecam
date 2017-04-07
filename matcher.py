@@ -8,6 +8,9 @@ INF = sys.maxsize
 def isok(c):
     return c.isalnum()
 
+def calcscore(common, gap1, gap2):
+    return common*2-(gap1+gap2)
+
 def readkeys(fp, title=None):
     ok = True
     for line in fp:
@@ -153,8 +156,9 @@ class Match:
         assert self.s1 < self.e1
         assert self.s2 < self.e2
         self.common = sum( n for (n,_,_) in ranges )
-        gap = (self.e1-self.s1-self.common + self.e2-self.s2-self.common)
-        self.score = self.common - gap
+        gap1 = (self.e1-self.s1-self.common)
+        gap2 = (self.e2-self.s2-self.common)
+        self.score = calcscore(self.common, gap1, gap2)
         return
 
     def __repr__(self):
@@ -189,12 +193,12 @@ class Match:
         common = self.common + m.common
         if self.e1 <= m.s1 and self.e2 <= m.s2:
             # self <= m
-            return common - (m.e1-self.s1-common + m.e2-self.s2-common)
+            return calcscore(common, m.e1-self.s1-common, m.e2-self.s2-common)
         elif m.e1 <= self.s1 and m.e2 <= self.s2:
             # m <= self
-            return common - (self.e1-m.s1-common + self.e2-m.s2-common)
+            return calcscore(common, self.e1-m.s1-common, self.e2-m.s2-common)
         else:
-            return -1
+            return -INF
 
     def merge(self, m):
         if self.e1 <= m.s1 and self.e2 <= m.s2:
@@ -226,12 +230,12 @@ def cluster(matches, mindist=INF):
     for (i,m0) in enumerate(matches):
         ra = idx1.search(m0.s1-mindist, m0.e1+mindist)
         rb = idx2.search(m0.s2-mindist, m0.e2+mindist)
-        (m1,s1) = (None, m0.score)
+        (m1,s1) = (None, -1)
         for j in ra.union(rb):
             if i < j:
                 m = matches[j]
                 s = m.getscore(m0)
-                if m.score < s and s1 < s:
+                if s1 < s:
                     (m1,s1) = (m,s)
         if m1 is not None:
             if i < matches.index(m1):
@@ -256,9 +260,6 @@ class Taken(ValueError): pass
 
 def fixate(matches):
     matches.sort(key=lambda m:(m.score, m.e1), reverse=True)
-    for m in matches:
-        print (m)
-        m.dump()
     taken1 = set()
     taken2 = set()
     for m in matches:
@@ -288,11 +289,13 @@ def main(argv):
         return usage()
     debug = 0
     title = None
-    mindist = INF
+    mindist = 20
+    minscore = 6
     for (k, v) in opts:
         if k == '-d': debug += 1
         elif k == '-t': title = v
         elif k == '-m': mindist = int(v)
+        elif k == '-s': minscore = int(v)
     if not args: return usage()
     with open(args.pop(0), 'r') as fp:
         keys = list(readkeys(fp, title=title))
@@ -301,16 +304,18 @@ def main(argv):
     text2 = ''.join( fp )
     corpus = Corpus(text1, text2)
     matches = list(corpus.getmatches())
-    if 1:
-        n0 = INF
+    n0 = INF
+    n1 = len(matches)
+    while n1 < n0:
+        matches = cluster(matches, mindist=mindist)
+        n0 = n1
         n1 = len(matches)
-        while n1 < n0:
-            matches = cluster(matches, mindist=mindist)
-            n0 = n1
-            n1 = len(matches)
+    matches = [ m for m in matches if minscore <= m.score ]
     matches = list(fixate(matches))
     maps = {}
     for m in matches:
+        print (m)
+        m.dump()
         for (n,i1,i2) in m.ranges:
             for d in range(n):
                 maps[i2+d] = i1+d
