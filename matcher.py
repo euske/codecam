@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 import sys
+import re
 from bisect import bisect_left
 from bisect import bisect_right
 from bisect import insort
 INF = sys.maxsize
 
-def isok(c):
-    return c.isalnum()
+PAT_CHUNK = re.compile(r'\w+|\S')
+def chunk(s):
+    return PAT_CHUNK.finditer(s)
 
 def calcscore(common, gap1, gap2):
     return common*2-(gap1+gap2)
@@ -115,31 +117,27 @@ class Corpus:
         self.text2 = text2
         return
 
-    def getmatches(self, minchars=2):
+    def genmatches(self, minchars=2):
         n1 = len(self.text1)
         n2 = len(self.text2)
-        sys.stderr.write('getmatches: n1=%d, n2=%d...\n' % (n1, n2))
-        pairs = set()
-        for i1 in range(n1):
-            i2 = 0
-            while i2 < n2:
-                if (isok(self.text1[i1]) and
-                    self.text1[i1] == self.text2[i2] and
-                    (i1,i2) not in pairs):
-                    ia = i1
-                    ib = i2
-                    n = 0
-                    while (ia < n1 and ib < n2 and isok(self.text1[ia]) and
-                           self.text1[ia] == self.text2[ib]):
-                        pairs.add((ia,ib))
-                        ia += 1
-                        ib += 1
-                        n += 1
-                    if minchars <= n:
-                        yield Match(self, [(n,i1,i2)])
-                    i2 = ib
-                else:
-                    i2 += 1
+        sys.stderr.write('genmatches: n1=%d, n2=%d...\n' % (n1, n2))
+        chunks1 = {}
+        for m in chunk(self.text1):
+            w = m.group(0)
+            if w in chunks1:
+                a = chunks1[w]
+            else:
+                a = chunks1[w] = []
+            i1 = m.start(0)
+            a.append(i1)
+        for m in chunk(self.text2):
+            w = m.group(0)
+            if w in chunks1:
+                i2 = m.start(0)
+                for i1 in chunks1[w]:
+                    m = Match(self, [(len(w),i1,i2)])
+                    #sys.stderr.write('genmatches: %r: %r\n' % (m, w))
+                    yield m
         return
 
 class Match:
@@ -163,7 +161,7 @@ class Match:
 
     def __repr__(self):
         return ('<Match(%d) %d-%d : %d-%d>' %
-                (self.score, self.s1, self.e1, self.s2, self.e2))
+                (self.common, self.s1, self.e1, self.s2, self.e2))
 
     def text1(self):
         i0 = None
@@ -281,21 +279,23 @@ def main(argv):
     import getopt
     import fileinput
     def usage():
-        print('usage: %s [-d] [-t title] [-m mindist] logfile [file ...]' % argv[0])
+        print('usage: %s [-d] [-t title] [-m mindist] [-n maxiters] logfile [file ...]' % argv[0])
         return 100
     try:
-        (opts, args) = getopt.getopt(argv[1:], 'dt:m:')
+        (opts, args) = getopt.getopt(argv[1:], 'dt:m:n:')
     except getopt.GetoptError:
         return usage()
     debug = 0
     title = None
     mindist = 20
     minscore = 6
+    maxiters = 10
     for (k, v) in opts:
         if k == '-d': debug += 1
         elif k == '-t': title = v
         elif k == '-m': mindist = int(v)
         elif k == '-s': minscore = int(v)
+        elif k == '-n': maxiters = int(v)
     if not args: return usage()
     with open(args.pop(0), 'r') as fp:
         keys = list(readkeys(fp, title=title))
@@ -303,12 +303,11 @@ def main(argv):
     fp = fileinput.input(args)
     text2 = ''.join( fp )
     corpus = Corpus(text1, text2)
-    matches = list(corpus.getmatches())
-    n0 = INF
+    matches = list(corpus.genmatches())
     n1 = len(matches)
-    while n1 < n0:
+    for _ in range(maxiters):
         matches = cluster(matches, mindist=mindist)
-        n0 = n1
+        if n1 == len(matches): break
         n1 = len(matches)
     matches = [ m for m in matches if minscore <= m.score ]
     matches = list(fixate(matches))
