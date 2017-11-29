@@ -182,8 +182,9 @@ class Match:
         return
 
     def dump(self):
-        print (repr(''.join(self.text1())))
-        print (repr(''.join(self.text2())))
+        print ('#', self)
+        print ('#', repr(''.join(self.text1())))
+        print ('#', repr(''.join(self.text2())))
         return
 
     def getscore(self, m):
@@ -313,8 +314,8 @@ def main(argv):
     matches = list(fixate(matches))
     maps = {}
     for m in matches:
-        print (m)
-        m.dump()
+        if debug:
+            m.dump()
         for (n,i1,i2) in m.ranges:
             for d in range(n):
                 maps[i2+d] = i1+d
