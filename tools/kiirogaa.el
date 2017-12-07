@@ -4,7 +4,7 @@
 ; User set variables.
 (defvar kiirogaa-log-file-name "~/kiirogaa.log"
   "Log file name.")
-(defvar kiirogaa-watch-buffer-name nil
+(defcustom kiirogaa-watch-buffer-name nil
   "Buffer name to watch (regexp).")
 
 ; Internal variables.

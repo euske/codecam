@@ -117,7 +117,7 @@ class Corpus:
         self.text2 = text2
         return
 
-    def genmatches(self, minchars=2):
+    def genmatches(self):
         n1 = len(self.text1)
         n2 = len(self.text2)
         sys.stderr.write('genmatches: n1=%d, n2=%d...\n' % (n1, n2))
@@ -157,11 +157,16 @@ class Match:
         gap1 = (self.e1-self.s1-self.common)
         gap2 = (self.e2-self.s2-self.common)
         self.score = calcscore(self.common, gap1, gap2)
+        #sys.stderr.write('new: %r\n' % self)
         return
 
     def __repr__(self):
-        return ('<Match(%d) %d-%d : %d-%d>' %
-                (self.common, self.s1, self.e1, self.s2, self.e2))
+        return ('<Match(%d) %d-%d : %d-%d: %r>' %
+                (self.score, self.s1, self.e1, self.s2, self.e2, self.ctext()))
+
+    def ctext(self):
+        return '/'.join( self.corpus.text1[i1:i1+n]
+                         for (n,i1,_) in self.ranges )
 
     def text1(self):
         i0 = None
@@ -229,7 +234,7 @@ def cluster(matches, mindist=INF):
     for (i,m0) in enumerate(matches):
         ra = idx1.search(m0.s1-mindist, m0.e1+mindist)
         rb = idx2.search(m0.s2-mindist, m0.e2+mindist)
-        (m1,s1) = (None, -1)
+        (m1,s1) = (None, -INF)
         for j in ra.union(rb):
             if i < j:
                 m = matches[j]
@@ -245,7 +250,7 @@ def cluster(matches, mindist=INF):
             sys.stderr.flush()
     sys.stderr.write('\n')
     pairs.sort(key=lambda x: x[0], reverse=True)
-    
+
     finished = []
     taken = set()
     for (_,(m0,m1)) in pairs:
