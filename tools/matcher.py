@@ -1,14 +1,12 @@
 #!/usr/bin/env python
 import sys
-import re
 from bisect import bisect_left
 from bisect import bisect_right
 from bisect import insort
 INF = sys.maxsize
 
-PAT_CHUNK = re.compile(r'\w+|\S')
-def chunk(s):
-    return PAT_CHUNK.finditer(s)
+def isok(c):
+    return not c.isspace()
 
 def calcscore(common, gap1, gap2):
     return common*2-(gap1+gap2)
@@ -121,23 +119,29 @@ class Corpus:
         n1 = len(self.text1)
         n2 = len(self.text2)
         sys.stderr.write('genmatches: n1=%d, n2=%d...\n' % (n1, n2))
-        chunks1 = {}
-        for m in chunk(self.text1):
-            w = m.group(0)
-            if w in chunks1:
-                a = chunks1[w]
+        index1 = {}
+        for (i1,c) in enumerate(self.text1):
+            if not isok(c): continue
+            if c in index1:
+                a = index1[c]
             else:
-                a = chunks1[w] = []
-            i1 = m.start(0)
+                a = index1[c] = []
             a.append(i1)
-        for m in chunk(self.text2):
-            w = m.group(0)
-            if w in chunks1:
-                i2 = m.start(0)
-                for i1 in chunks1[w]:
-                    m = Match(self, [(len(w),i1,i2)])
-                    #sys.stderr.write('genmatches: %r: %r\n' % (m, w))
-                    yield m
+        for (i2,c) in enumerate(self.text2):
+            if c not in index1: continue
+            # assert isok(c)
+            # assert text1[i1] == text2[i2]
+            for i1 in index1[c]:
+                n = 1
+                p1 = i1+1
+                p2 = i2+1
+                while (p1 < n1 and p2 < n2 and isok(self.text1[p1]) and
+                       self.text1[p1] == self.text2[p2]):
+                    n += 1
+                    p1 += 1
+                    p2 += 1
+                m = Match(self, [(n,i1,i2)])
+                yield m
         return
 
 class Match:
