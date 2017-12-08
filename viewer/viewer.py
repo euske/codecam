@@ -3,6 +3,7 @@
 # ffmpeg -r 1 -t 1 -ss 60 -i stream.mp4 -filter:v 'crop=240:180:1040:0' -f image2 snapshot-%05d.jpeg
 #
 import sys
+import os.path
 import time
 import fileinput
 
@@ -54,22 +55,20 @@ def show(func, maps, args, debug=0):
 def main(argv):
     import getopt
     def usage():
-        print('usage: %s [-d] {-T|-H} [-s start] [-t template.html] outfile [file ...]' % argv[0])
+        print('usage: %s [-d] {-T|-H template.html} [-s stream.mp3] outfile [file ...]' % argv[0])
         return 100
     try:
-        (opts, args) = getopt.getopt(argv[1:], 'dTHs:t:')
+        (opts, args) = getopt.getopt(argv[1:], 'dTH:s:')
     except getopt.GetoptError:
         return usage()
     debug = 0
-    html = False
-    start = 0
-    template = None
+    html = None
+    stream = 'stream.mp3'
     for (k, v) in opts:
         if k == '-d': debug += 1
-        elif k == '-H': html = True
-        elif k == '-T': html = False
-        elif k == '-s': start = time.mktime(time.strptime(v, '%Y-%m-%d %H:%M:%S'))
-        elif k == '-t': template = v
+        elif k == '-T': html = None
+        elif k == '-H': html = v
+        elif k == '-s': stream = v
     if not args: return usage()
     maps = {}
     with open(args.pop(0), 'r') as fp:
@@ -81,16 +80,19 @@ def main(argv):
             if line:
                 (t,c) = eval(line)
                 maps[int(i2)] = (t,c)
-    if html:
-        if template is not None:
-            with open(template, 'r') as fp:
-                sys.stdout.write(fp.read())
+    if html is not None:
+        with open(html, 'r') as fp:
+            sys.stdout.write(fp.read())
+        sys.stdout.write('<video controls id="video" src="%s" width="800"></video>\n' %
+                         q(stream))
+        (name,_) = os.path.splitext(os.path.basename(stream))
+        start = time.mktime(time.strptime(name[-15:], '%Y%m%d-%H%M%S'))
         sys.stdout.write('<pre id="src" t="%f">\n' % start)
         func = func_html
     else:
         func = func_text
     show(func, maps, args)
-    if html:
+    if html is not None:
         sys.stdout.write('</pre>\n')
     return
 

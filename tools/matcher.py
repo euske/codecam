@@ -120,28 +120,29 @@ class Corpus:
         n2 = len(self.text2)
         sys.stderr.write('genmatches: n1=%d, n2=%d...\n' % (n1, n2))
         index1 = {}
-        for (i1,c) in enumerate(self.text1):
+        for (s1,c) in enumerate(self.text1):
             if not isok(c): continue
             if c in index1:
                 a = index1[c]
             else:
                 a = index1[c] = []
-            a.append(i1)
-        for (i2,c) in enumerate(self.text2):
+            a.append(s1)
+        for (s2,c) in enumerate(self.text2):
             if c not in index1: continue
             # assert isok(c)
-            # assert text1[i1] == text2[i2]
-            for i1 in index1[c]:
-                n = 1
-                p1 = i1+1
-                p2 = i2+1
-                while (p1 < n1 and p2 < n2 and isok(self.text1[p1]) and
-                       self.text1[p1] == self.text2[p2]):
+            # assert text1[s1] == text2[s2]
+            for s1 in index1[c]:
+                n = 0
+                i1 = s1
+                i2 = s2
+                while True:
                     n += 1
-                    p1 += 1
-                    p2 += 1
-                m = Match(self, [(n,i1,i2)])
-                yield m
+                    yield Match(self, [(n,s1,s2)])
+                    i1 += 1
+                    i2 += 1
+                    if (n1 <= i1 or n2 <= i2 or
+                        not isok(self.text1[i1]) or
+                        self.text1[i1] != self.text2[i2]): break
         return
 
 class Match:
@@ -216,7 +217,7 @@ class Match:
         else:
             raise ValueError(m)
 
-def cluster(matches, mindist=INF):
+def cluster(matches, minscore=0, mindist=INF):
     #sys.stderr.write('building index...\n')
     matches.sort(key=lambda m:m.score, reverse=True)
     idx1 = Index('idx1')
@@ -259,10 +260,12 @@ def cluster(matches, mindist=INF):
     taken = set()
     for (_,(m0,m1)) in pairs:
         if m0 not in taken and m1 not in taken:
+            m = m1.merge(m0)
+            if m.score < minscore: continue
             taken.add(m0)
             taken.add(m1)
-            finished.append(m1.merge(m0))
-    return finished + [ m for m in matches if m not in taken ]
+            finished.append(m)
+    return finished + matches
 
 class Taken(ValueError): pass
 
@@ -289,10 +292,11 @@ def main(argv):
     import getopt
     import fileinput
     def usage():
-        print('usage: %s [-d] [-t title] [-m mindist] [-n maxiters] logfile [file ...]' % argv[0])
+        print('usage: %s [-d] [-t title] [-m mindist] [-s minscore]'
+              ' [-n maxiters] [-x maxclusters] logfile [file ...]' % argv[0])
         return 100
     try:
-        (opts, args) = getopt.getopt(argv[1:], 'dt:m:n:')
+        (opts, args) = getopt.getopt(argv[1:], 'dt:m:s:n:x:')
     except getopt.GetoptError:
         return usage()
     debug = 0
@@ -300,12 +304,18 @@ def main(argv):
     mindist = 20
     minscore = 6
     maxiters = 10
+    maxclusters = 1000
     for (k, v) in opts:
         if k == '-d': debug += 1
         elif k == '-t': title = v
         elif k == '-m': mindist = int(v)
         elif k == '-s': minscore = int(v)
         elif k == '-n': maxiters = int(v)
+        elif k == '-x': maxclusters = int(v)
+    if maxiters == 0:
+        maxiters = INF
+    if maxclusters == 0:
+        maxclusters = INF
     if not args: return usage()
     with open(args.pop(0), 'r') as fp:
         keys = list(readkeys(fp, title=title))
@@ -316,10 +326,11 @@ def main(argv):
     matches = list(corpus.genmatches())
     n1 = len(matches)
     for _ in range(maxiters):
-        matches = cluster(matches, mindist=mindist)
+        matches = cluster(matches, minscore=minscore, mindist=mindist)
         if n1 == len(matches): break
+        matches.sort(key=lambda m: m.score, reverse=True)
+        matches = matches[:maxclusters]
         n1 = len(matches)
-    matches = [ m for m in matches if minscore <= m.score ]
     matches = list(fixate(matches))
     maps = {}
     for m in matches:
