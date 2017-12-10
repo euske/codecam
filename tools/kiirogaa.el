@@ -4,6 +4,8 @@
 ; User set variables.
 (defvar kiirogaa-log-file-name "~/kiirogaa.log"
   "Log file name.")
+(defvar kiirogaa-log-buffer nil
+  "Buffer object to log.")
 (defcustom kiirogaa-watch-buffer-name nil
   "Buffer name to watch (regexp).")
 
@@ -13,11 +15,23 @@
 (defvar -kiirogaa-last-buffer nil
   "Last logged buffer (internal use).")
 
+(defun kiirogaa-start-logging ()
+  (interactive)
+  (setq kiirogaa-log-buffer (current-buffer))
+  )
+
+(defun kiirogaa-stop-logging ()
+  (interactive)
+  (setq kiirogaa-log-buffer nil)
+  )
+
 (defun kiirogaa-post-self-insert-hook ()
-  (when (stringp kiirogaa-watch-buffer-name)
+  (when (or kiirogaa-log-buffer
+	    (stringp kiirogaa-watch-buffer-name))
     (let* ((buffer (current-buffer))
 	   (name (buffer-name buffer)))
-      (when (string-match kiirogaa-watch-buffer-name name)
+      (when (or (eq kiirogaa-log-buffer buffer)
+		(string-match kiirogaa-watch-buffer-name name))
 	(save-current-buffer
 	  (set-buffer (get-buffer-create -kiirogaa-tmp-buffer-name))
 	  (erase-buffer)
