@@ -6,7 +6,7 @@ from bisect import insort
 INF = sys.maxsize
 
 def isok(c):
-    return not c.isspace()
+    return c.isprintable()
 
 def calcscore(common, gap1, gap2):
     return common*2-(gap1+gap2)
@@ -20,10 +20,10 @@ def readkeys(fp, title=None):
             ok = (title is None or s == title)
         elif line and ok:
             (line,_,_) = line.partition('#')
-            (t,_,c) = line.strip().partition(' ')
-            if t and c:
-                t = float(t)
-                c = chr(int(c))
+            f = line.strip().split(' ')
+            if 2 <= len(f):
+                t = float(f[0])
+                c = chr(int(f[1]))
                 yield (t, c)
     return
 

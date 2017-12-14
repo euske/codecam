@@ -76,6 +76,7 @@ def main(argv):
             line = line.strip()
             (i2,_,line) = line.partition(' ')
             (c,_,line) = line.partition(' ')
+            if not c: continue
             (i1,_,line) = line.partition(' ')
             if line:
                 (t,c) = eval(line)
