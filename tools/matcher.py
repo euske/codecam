@@ -6,10 +6,7 @@ from bisect import insort
 INF = sys.maxsize
 
 def isok(c):
-    return c.isprintable()
-
-def calcscore(common, gap1, gap2):
-    return common*2-(gap1+gap2)
+    return not c.isspace()
 
 def readkeys(fp, title=None):
     ok = True
@@ -135,14 +132,14 @@ class Corpus:
                 n = 0
                 i1 = s1
                 i2 = s2
-                while True:
+                while (i1 < n1 and i2 < n2 and
+                       isok(self.text1[i1]) and
+                       self.text1[i1] == self.text2[i2]):
                     n += 1
-                    yield Match(self, [(n,s1,s2)])
                     i1 += 1
                     i2 += 1
-                    if (n1 <= i1 or n2 <= i2 or
-                        not isok(self.text1[i1]) or
-                        self.text1[i1] != self.text2[i2]): break
+                m = Match(self, [(n,s1,s2)])
+                yield m
         return
 
 class Match:
@@ -158,20 +155,19 @@ class Match:
         self.e2 = i2+n
         assert self.s1 < self.e1
         assert self.s2 < self.e2
-        self.common = sum( n for (n,_,_) in ranges )
-        gap1 = (self.e1-self.s1-self.common)
-        gap2 = (self.e2-self.s2-self.common)
-        self.score = calcscore(self.common, gap1, gap2)
-        #sys.stderr.write('new: %r\n' % self)
+        common = sum( n for (n,_,_) in self.ranges )
+        gap1 = (self.e1-self.s1-common)
+        gap2 = (self.e2-self.s2-common)
+        self.score = common*2-(gap1+gap2)
         return
 
     def __repr__(self):
-        return ('<Match(%d) %d-%d : %d-%d: %r>' %
-                (self.score, self.s1, self.e1, self.s2, self.e2, self.ctext()))
+        return ('<Match(%r) %d-%d : %d-%d>' %
+                (self.ctext(), self.s1, self.e1, self.s2, self.e2))
 
     def ctext(self):
-        return '/'.join( self.corpus.text1[i1:i1+n]
-                         for (n,i1,_) in self.ranges )
+        return ''.join( self.corpus.text1[i1:i1+n]
+                        for (n,i1,_) in self.ranges )
 
     def text1(self):
         i0 = None
@@ -197,17 +193,16 @@ class Match:
         print ('#', repr(''.join(self.text2())))
         return
 
-    def getscore(self, m):
+    def getdist(self, m):
         # must be non-overlapping and non-crossing.
-        common = self.common + m.common
         if self.e1 <= m.s1 and self.e2 <= m.s2:
             # self <= m
-            return calcscore(common, m.e1-self.s1-common, m.e2-self.s2-common)
+            return (m.s1-self.e1) + (m.s2-self.e2)
         elif m.e1 <= self.s1 and m.e2 <= self.s2:
             # m <= self
-            return calcscore(common, self.e1-m.s1-common, self.e2-m.s2-common)
+            return (self.s1-m.e1) + (self.s2-m.e2)
         else:
-            return -INF
+            return +INF
 
     def merge(self, m):
         if self.e1 <= m.s1 and self.e2 <= m.s2:
@@ -217,9 +212,8 @@ class Match:
         else:
             raise ValueError(m)
 
-def cluster(matches, minscore=0, mindist=INF):
+def cluster(matches, minscore=0, maxdist=INF):
     #sys.stderr.write('building index...\n')
-    matches.sort(key=lambda m:m.score, reverse=True)
     idx1 = Index('idx1')
     idx2 = Index('idx2')
     for (i,m) in enumerate(matches):
@@ -235,37 +229,35 @@ def cluster(matches, minscore=0, mindist=INF):
     sys.stderr.flush()
 
     pairs = []
-    n = 0
     for (i,m0) in enumerate(matches):
-        ra = idx1.search(m0.s1-mindist, m0.e1+mindist)
-        rb = idx2.search(m0.s2-mindist, m0.e2+mindist)
-        (m1,s1) = (None, -INF)
+        ra = idx1.search(m0.s1-maxdist, m0.e1+maxdist)
+        rb = idx2.search(m0.s2-maxdist, m0.e2+maxdist)
+        (m1,d1) = (None, +INF)
         for j in ra.union(rb):
             if i < j:
                 m = matches[j]
-                s = m.getscore(m0)
-                if s1 < s:
-                    (m1,s1) = (m,s)
+                d = m.getdist(m0)
+                if d < d1:
+                    (m1,d1) = (m,d)
         if m1 is not None:
-            if i < matches.index(m1):
-                pairs.append((s1,(m0,m1)))
-        n += 1
-        if (n % 100) == 0:
+            assert i < matches.index(m1)
+            pairs.append((d1,(m0,m1)))
+        if (i % 100) == 0:
             sys.stderr.write('.')
             sys.stderr.flush()
     sys.stderr.write('\n')
-    pairs.sort(key=lambda x: x[0], reverse=True)
+    pairs.sort(key=lambda x: x[0])
 
-    finished = []
+    new = []
     taken = set()
-    for (_,(m0,m1)) in pairs:
-        if m0 not in taken and m1 not in taken:
-            m = m1.merge(m0)
-            if m.score < minscore: continue
-            taken.add(m0)
-            taken.add(m1)
-            finished.append(m)
-    return finished + matches
+    for (d,(m0,m1)) in pairs:
+        m = m1.merge(m0)
+        if m.score <= m0.score or m.score <= m1.score: continue
+        taken.add(m0)
+        taken.add(m1)
+        new.append(m)
+    old = [ m for m in matches if m not in taken ]
+    return (new, old)
 
 class Taken(ValueError): pass
 
@@ -292,7 +284,7 @@ def main(argv):
     import getopt
     import fileinput
     def usage():
-        print('usage: %s [-d] [-t title] [-m mindist] [-s minscore]'
+        print('usage: %s [-d] [-t title] [-m maxdist] [-s minscore]'
               ' [-n maxiters] [-x maxclusters] logfile [file ...]' % argv[0])
         return 100
     try:
@@ -301,14 +293,14 @@ def main(argv):
         return usage()
     debug = 0
     title = None
-    mindist = 20
-    minscore = 6
+    maxdist = 10
+    minscore = 4
     maxiters = 10
     maxclusters = 1000
     for (k, v) in opts:
         if k == '-d': debug += 1
         elif k == '-t': title = v
-        elif k == '-m': mindist = int(v)
+        elif k == '-m': maxdist = int(v)
         elif k == '-s': minscore = int(v)
         elif k == '-n': maxiters = int(v)
         elif k == '-x': maxclusters = int(v)
@@ -324,14 +316,13 @@ def main(argv):
     text2 = ''.join( fp )
     corpus = Corpus(text1, text2)
     matches = list(corpus.genmatches())
-    n1 = len(matches)
+    a = []
     for _ in range(maxiters):
-        matches = cluster(matches, minscore=minscore, mindist=mindist)
-        if n1 == len(matches): break
-        matches.sort(key=lambda m: m.score, reverse=True)
-        matches = matches[:maxclusters]
-        n1 = len(matches)
-    matches = list(fixate(matches))
+        (new,old) = cluster(matches, minscore=minscore, maxdist=maxdist)
+        a.extend(old)
+        if not new: break
+        matches = new
+    matches = list(fixate(a))
     maps = {}
     for m in matches:
         if debug:
