@@ -25,9 +25,9 @@ def func_html(a):
     if isinstance(a, str):
         return q(a)
     else:
-        v = ','.join( str(v[0]) for (_,v) in a )
-        s = ''.join( c for (c,_) in a )
-        return '<a t="%s">%s</a>' % (v, q(s))
+        #v = ','.join( str(v[0]) for (_,v) in a )
+        #s = ''.join( c for (c,_) in a )
+        return ''.join('<a t="%s">%s</a>' % (v[0], q(c)) for (c,v) in a )
 
 def show(func, maps, args, debug=0):
     i1 = 0
