@@ -212,7 +212,7 @@ class Match:
         else:
             raise ValueError(m)
 
-def cluster(matches, minscore=0, maxdist=INF):
+def cluster(matches, maxdist=INF):
     #sys.stderr.write('building index...\n')
     idx1 = Index('idx1')
     idx2 = Index('idx2')
@@ -318,8 +318,8 @@ def main(argv):
     matches = list(corpus.genmatches())
     a = []
     for _ in range(maxiters):
-        (new,old) = cluster(matches, minscore=minscore, maxdist=maxdist)
-        a.extend(old)
+        (new,old) = cluster(matches, maxdist=maxdist)
+        a.extend( m for m in old if minscore < m.score )
         if not new: break
         matches = new
     matches = list(fixate(a))

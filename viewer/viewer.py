@@ -63,7 +63,7 @@ def main(argv):
         return usage()
     debug = 0
     html = None
-    stream = 'stream.mp3'
+    stream = 'stream.mp4'
     for (k, v) in opts:
         if k == '-d': debug += 1
         elif k == '-T': html = None
@@ -88,7 +88,7 @@ def main(argv):
                          q(stream))
         (name,_) = os.path.splitext(os.path.basename(stream))
         start = time.mktime(time.strptime(name[-15:], '%Y%m%d-%H%M%S'))
-        sys.stdout.write('<pre id="src" t="%f">\n' % start)
+        sys.stdout.write('<pre id="src" t="%f">\n' % (start+1))
         func = func_html
     else:
         func = func_text
