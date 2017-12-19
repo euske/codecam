@@ -16,6 +16,7 @@ def send(session, data, apikey, timeout=30):
     req = session.post(url, data, headers=headers, timeout=timeout)
     if req.status_code != 200: raise IOError((req.status_code, url))
     objs = json.loads(req.content)
+    if not objs: return {}
     return objs[0]
 
 def getvalue(props):
@@ -56,6 +57,7 @@ def main(argv):
             if scores:
                 (k,v) = getvalue(scores)
                 print(path, k, v)
+                sys.stdout.flush()
         time.sleep(delay)
     return 0
 
