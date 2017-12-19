@@ -5,7 +5,7 @@
 //  Caption
 //
 class Caption {
-    
+
     elem: HTMLElement;
 
     constructor(elem: HTMLElement) {
@@ -24,17 +24,17 @@ class Caption {
 //  Trigger
 //
 class Trigger {
-    
+
     t: number;
     show: boolean;
     caption: Caption;
-    
+
     constructor(t: number, show: boolean, caption: Caption) {
 	this.t = t;
 	this.show = show;
 	this.caption = caption;
     }
-    
+
     toString() {
 	return ('<Trigger ('+this.t+'): show='+this.show+', caption='+this.caption+'>');
     }
@@ -44,10 +44,10 @@ class Trigger {
 //  Segment
 //
 class Segment {
-    
+
     t: number;
     captions: Caption[];
-    
+
     constructor(t: number, captions: Caption[]) {
 	this.t = t;
 	this.captions = captions;
@@ -60,9 +60,9 @@ class Segment {
 
 
 //  CaptionSet
-// 
+//
 class CaptionSet {
-    
+
     present: Caption[] = [];
 
     setCaptions(captions: Caption[]) {
@@ -111,7 +111,7 @@ class Timeline {
 	}
 	this.segments.push(new Segment(+Infinity, []));
     }
-    
+
     get(t: number): Caption[] {
 	let i0 = 0;
 	let i1 = this.segments.length;
@@ -134,12 +134,11 @@ class Timeline {
 
 
 const interval = 33;
-var baseTime = 0;
 var video: HTMLVideoElement = null;
 
 // seek
 function S(t: number) {
-    video.currentTime = t - baseTime;
+    video.currentTime = t;
     video.play();
 }
 
@@ -147,7 +146,6 @@ function S(t: number) {
 function run() {
     video = document.getElementById('video') as HTMLVideoElement;
     let src = document.getElementById('src');
-    baseTime = parseFloat(src.getAttribute('t'));
     let timeline = new Timeline();
     let elems = src.getElementsByTagName('a');
     for (let i = 0; i < elems.length; i++) {
@@ -162,7 +160,7 @@ function run() {
     timeline.build();
     let cset = new CaptionSet();
     window.setInterval(() => {
-	let t = video.currentTime + baseTime;
+	let t = video.currentTime;
 	cset.setCaptions(timeline.get(t));
     }, interval);
 }
