@@ -16,7 +16,7 @@ def send(session, data, apikey, timeout=30):
     req = session.post(url, data, headers=headers, timeout=timeout)
     if req.status_code != 200: raise IOError((req.status_code, url))
     objs = json.loads(req.content)
-    if not objs: return {}
+    if not objs: return None
     return objs[0]
 
 def getvalue(props):
@@ -45,7 +45,7 @@ def main(argv):
             with open(v) as fp:
                 apikey = fp.read().strip()
         elif k == '-w':
-            delay = int(v)
+            delay = float(v)
     #
     session = requests.session()
     for path in args:
@@ -53,11 +53,12 @@ def main(argv):
         with open(path, 'rb') as fp:
             data = fp.read()
             obj = send(session, data, apikey)
+            if not obj: continue
             scores = obj.get('scores')
-            if scores:
-                (k,v) = getvalue(scores)
-                print(path, k, v)
-                sys.stdout.flush()
+            if not scores: continue
+            props = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+            print(path, ' '.join( '%s:%.3f' % (k,v) for (k,v) in props ))
+            sys.stdout.flush()
         time.sleep(delay)
     return 0
 

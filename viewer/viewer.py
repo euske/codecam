@@ -5,6 +5,7 @@ import sys
 import os.path
 import time
 import fileinput
+import re
 
 def q(s):
     return (s.
@@ -27,6 +28,26 @@ def getfeat(t, featmap, dt=1):
         else:
             return f
     return None
+
+PAT = re.compile(r'.*\bi(\d+)\.jpg')
+def loadfeats(fp):
+    feats = []
+    for line in fp:
+        line = line.strip()
+        (t,_,line) = line.partition(' ')
+        m = PAT.match(t)
+        t = float(m.group(1))
+        f = []
+        for x in line.split(' '):
+            (k,_,v) = x.partition(':')
+            v = float(v)
+            if k == 'neutral':
+                v -= 0.90
+            f.append((v, k))
+        f.sort(reverse=True)
+        feats.append((t, f[0][1]))
+    feats.sort()
+    return feats
 
 def func_text(a):
     if isinstance(a, str):
@@ -97,14 +118,8 @@ def main(argv):
         elif k == '-H': html = v
         elif k == '-s': stream = v
         elif k == '-f':
-            featmap = []
             with open(v, 'r') as fp:
-                for line in fp:
-                    line = line.strip()
-                    (t,_,line) = line.partition(' ')
-                    (s,_,line) = line.partition(' ')
-                    featmap.append((float(t), s))
-            featmap.sort()
+                featmap = loadfeats(fp)
     if not args: return usage()
     maps = {}
     with open(args.pop(0), 'r') as fp:

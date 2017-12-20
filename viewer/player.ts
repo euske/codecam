@@ -13,10 +13,10 @@ class Caption {
     }
 
     show() {
-	this.elem.setAttribute('class', 'h');
+	this.elem.classList.add('h');
     }
     hide() {
-	this.elem.setAttribute('class', '');
+	this.elem.classList.remove('h');
     }
 }
 
