@@ -23,35 +23,35 @@ static CGEventRef eventCallback(
     CGEventRef event, void* refcon)
 {
     if (type == kCGEventKeyDown) {
-	FILE* fp = (FILE*)refcon;
-	// Retrieve the incoming keycode.
-	CGKeyCode keyCode = (CGKeyCode)CGEventGetIntegerValueField(
-	    event, kCGKeyboardEventKeycode);
-	CGEventFlags flags = CGEventGetFlags(event);
-	if (!(flags & kCGEventFlagMaskControl)) {
-	    // Print the human readable key to the logfile.
-	    UInt32 keysDown = 0;
-	    UniChar chars[4];
-	    UniCharCount length = 0;
-	    if (UCKeyTranslate(
-		    keyboardLayout, keyCode, kUCKeyActionDisplay,
-		    (flags >> 16) & 0xff, LMGetKbdType(),
-		    kUCKeyTranslateNoDeadKeysBit,
-		    &keysDown, 4, &length, chars) == 0) {
-		if (0 < length) {
-		    wchar_t c = chars[0];
-		    struct timeb tp;
-		    ftime(&tp);
-		    fprintf(fp, "%ld.%03d %u ", tp.time, tp.millitm, c);
-		    if (c < 32) {
-			fprintf(fp, "'\\%03o'\n", c);
-		    } else {
-			fprintf(fp, "%C\n", c);
-		    }
-		    fflush(fp);
-		}
-	    }
-	}
+        FILE* fp = (FILE*)refcon;
+        // Retrieve the incoming keycode.
+        CGKeyCode keyCode = (CGKeyCode)CGEventGetIntegerValueField(
+            event, kCGKeyboardEventKeycode);
+        CGEventFlags flags = CGEventGetFlags(event);
+        if (!(flags & kCGEventFlagMaskControl)) {
+            // Print the human readable key to the logfile.
+            UInt32 keysDown = 0;
+            UniChar chars[4];
+            UniCharCount length = 0;
+            if (UCKeyTranslate(
+                    keyboardLayout, keyCode, kUCKeyActionDisplay,
+                    (flags >> 16) & 0xff, LMGetKbdType(),
+                    kUCKeyTranslateNoDeadKeysBit,
+                    &keysDown, 4, &length, chars) == 0) {
+                if (0 < length) {
+                    wchar_t c = chars[0];
+                    struct timeb tp;
+                    ftime(&tp);
+                    fprintf(fp, "%ld.%03d %u ", tp.time, tp.millitm, c);
+                    if (c < 32) {
+                        fprintf(fp, "'\\%03o'\n", c);
+                    } else {
+                        fprintf(fp, "%C\n", c);
+                    }
+                    fflush(fp);
+                }
+            }
+        }
     }
     return event;
 }
@@ -62,30 +62,30 @@ static int setupLogger(FILE* fp)
     CGEventMask eventMask = CGEventMaskBit(kCGEventKeyDown);
     CFMachPortRef eventTap = CGEventTapCreate(
         kCGSessionEventTap, kCGHeadInsertEventTap, 0,
-	eventMask, eventCallback, fp
+        eventMask, eventCallback, fp
     );
     if (!eventTap) {
         fprintf(stderr, "ERROR: Unable to create event tap.\n");
-	return 111;
+        return 111;
     }
 
     /* Setup a keyboard translation. */
     TISInputSourceRef currentKeyboard = TISCopyCurrentKeyboardInputSource();
     CFDataRef layoutData = TISGetInputSourceProperty(
-	currentKeyboard,
-	kTISPropertyUnicodeKeyLayoutData);
+        currentKeyboard,
+        kTISPropertyUnicodeKeyLayoutData);
     keyboardLayout = (const UCKeyboardLayout*)CFDataGetBytePtr(layoutData);
     if (keyboardLayout == NULL) {
         fprintf(stderr, "ERROR: Unable to get the keyboard layout.\n");
-	return 111;
+        return 111;
     }
 
     // Create a run loop source and add enable the event tap.
     CFRunLoopSourceRef runLoopSource =
-	CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0);
+        CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0);
     CFRunLoopAddSource(
-	CFRunLoopGetCurrent(),
-	runLoopSource, kCFRunLoopCommonModes);
+        CFRunLoopGetCurrent(),
+        runLoopSource, kCFRunLoopCommonModes);
     CGEventTapEnable(eventTap, true);
 
     return 0;
@@ -95,16 +95,16 @@ int main(int argc, const char* argv[])
 {
     FILE* fp = stdout;
     if (2 <= argc) {
-	fp = fopen(argv[1], "a");
-	if (fp == NULL) {
-	    fprintf(stderr, "Unable to open: %s.\n", argv[1]);
-	    return 111;
-	}
+        fp = fopen(argv[1], "a");
+        if (fp == NULL) {
+            fprintf(stderr, "Unable to open: %s.\n", argv[1]);
+            return 111;
+        }
     }
 
     int retval = setupLogger(fp);
     if (retval != 0) {
-	return retval;
+        return retval;
     }
 
     struct timeb tp;

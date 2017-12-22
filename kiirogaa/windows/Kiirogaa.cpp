@@ -24,7 +24,7 @@ enum {
 
 
 //  Kiirogaa
-// 
+//
 typedef struct _Kiirogaa
 {
     FILE* logfp;
@@ -104,7 +104,7 @@ static void writeToLog(Kiirogaa* self, int c)
             fwprintf(self->logfp, L"# %s\n", name);
         }
     }
-    
+
     SYSTEMTIME st;
     GetLocalTime(&st);
     fwprintf(
@@ -129,7 +129,7 @@ static LRESULT CALLBACK kiirogaaTrayWndProc(
     case WM_CREATE:
     {
         // Initialization.
-	CREATESTRUCT* cs = (CREATESTRUCT*)lParam;
+        CREATESTRUCT* cs = (CREATESTRUCT*)lParam;
         Kiirogaa* self = (Kiirogaa*)cs->lpCreateParams;
         {
             // Set the default item.
@@ -151,16 +151,16 @@ static LRESULT CALLBACK kiirogaaTrayWndProc(
         nidata.uFlags = NIF_MESSAGE;
         nidata.uCallbackMessage = WM_USER_ICON_EVENT;
         Shell_NotifyIcon(NIM_ADD, &nidata);
-	return FALSE;
+        return FALSE;
     }
-    
+
     case WM_DESTROY:
     {
         // Clean up.
-	LONG_PTR lp = GetWindowLongPtr(hWnd, GWLP_USERDATA);
+        LONG_PTR lp = GetWindowLongPtr(hWnd, GWLP_USERDATA);
         Kiirogaa* self = (Kiirogaa*)lp;
         if (self != NULL) {
-	    // Unregister the icon.
+            // Unregister the icon.
             NOTIFYICONDATA nidata = {0};
             nidata.cbSize = sizeof(nidata);
             nidata.hWnd = hWnd;
@@ -168,24 +168,24 @@ static LRESULT CALLBACK kiirogaaTrayWndProc(
             Shell_NotifyIcon(NIM_DELETE, &nidata);
 
             // Destroy the data structure.
-	    SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)NULL);
+            SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)NULL);
         }
         // Exit the program.
-	PostQuitMessage(0);
-	return FALSE;
+        PostQuitMessage(0);
+        return FALSE;
     }
 
     case WM_CLOSE:
-	DestroyWindow(hWnd);
-	return FALSE;
+        DestroyWindow(hWnd);
+        return FALSE;
 
     case WM_COMMAND:
     {
         // Respond to menu choices.
-	LONG_PTR lp = GetWindowLongPtr(hWnd, GWLP_USERDATA);
+        LONG_PTR lp = GetWindowLongPtr(hWnd, GWLP_USERDATA);
         Kiirogaa* self = (Kiirogaa*)lp;
 
-	switch (LOWORD(wParam)) {
+        switch (LOWORD(wParam)) {
         case IDM_TOGGLE:
             // Toggle enable/disable the function.
             if (self != NULL) {
@@ -207,23 +207,23 @@ static LRESULT CALLBACK kiirogaaTrayWndProc(
                 ofn.lpstrDefExt = L"log";
                 ofn.Flags = OFN_EXPLORER;
                 if (GetSaveFileName(&ofn)) {
-                    SendMessage(hWnd, WM_USER_STATE_CHANGED, 0, 0);                    
+                    SendMessage(hWnd, WM_USER_STATE_CHANGED, 0, 0);
                 }
             }
             break;
 
-	case IDM_EXIT:
+        case IDM_EXIT:
             // Exiting.
-	    SendMessage(hWnd, WM_CLOSE, 0, 0);
-	    break;
-	}
-	return FALSE;
+            SendMessage(hWnd, WM_CLOSE, 0, 0);
+            break;
+        }
+        return FALSE;
     }
 
     case WM_USER_STATE_CHANGED:
     {
         // Respond to a status change.
-	LONG_PTR lp = GetWindowLongPtr(hWnd, GWLP_USERDATA);
+        LONG_PTR lp = GetWindowLongPtr(hWnd, GWLP_USERDATA);
         Kiirogaa* self = (Kiirogaa*)lp;
         if (self != NULL) {
             HMENU menu = GetMenu(hWnd);
@@ -235,7 +235,7 @@ static LRESULT CALLBACK kiirogaaTrayWndProc(
                     info.cbSize = sizeof(info);
                     info.fMask = MIIM_STATE;
                     info.fState = ((self->enabled)?
-                                   MFS_CHECKED : 
+                                   MFS_CHECKED :
                                    MFS_UNCHECKED);
                     info.fState |= MFS_DEFAULT;
                     SetMenuItemInfo(menu, IDM_TOGGLE, FALSE, &info);
@@ -254,7 +254,7 @@ static LRESULT CALLBACK kiirogaaTrayWndProc(
     case WM_USER_ICON_CHANGED:
     {
         // Change the icon and status text.
-	LONG_PTR lp = GetWindowLongPtr(hWnd, GWLP_USERDATA);
+        LONG_PTR lp = GetWindowLongPtr(hWnd, GWLP_USERDATA);
         Kiirogaa* self = (Kiirogaa*)lp;
         if (self != NULL) {
             // LPARAM: active hook.
@@ -270,44 +270,44 @@ static LRESULT CALLBACK kiirogaaTrayWndProc(
         }
         return FALSE;
     }
-    
+
     case WM_USER_ICON_EVENT:
     {
         // Respond to tray icon events.
-	POINT pt;
+        POINT pt;
         HMENU menu = GetMenu(hWnd);
         if (menu != NULL) {
             menu = GetSubMenu(menu, 0);
         }
-	switch (lParam) {
-	case WM_LBUTTONDBLCLK:
+        switch (lParam) {
+        case WM_LBUTTONDBLCLK:
             // Double click - choose the default item.
             if (menu != NULL) {
                 UINT item = GetMenuDefaultItem(menu, FALSE, 0);
                 SendMessage(hWnd, WM_COMMAND, MAKEWPARAM(item, 1), NULL);
             }
-	    break;
-	case WM_LBUTTONUP:
-	    break;
-	case WM_RBUTTONUP:
+            break;
+        case WM_LBUTTONUP:
+            break;
+        case WM_RBUTTONUP:
             // Right click - open the popup menu.
-	    if (GetCursorPos(&pt)) {
+            if (GetCursorPos(&pt)) {
                 SetForegroundWindow(hWnd);
                 if (menu != NULL) {
-                    TrackPopupMenu(menu, TPM_LEFTALIGN, 
+                    TrackPopupMenu(menu, TPM_LEFTALIGN,
                                    pt.x, pt.y, 0, hWnd, NULL);
                 }
-		PostMessage(hWnd, WM_NULL, 0, 0);
-	    }
-	    break;
-	}
-	return FALSE;
+                PostMessage(hWnd, WM_NULL, 0, 0);
+            }
+            break;
+        }
+        return FALSE;
     }
 
     case WM_COPYDATA:
     {
         // Respond to a status change.
-	LONG_PTR lp = GetWindowLongPtr(hWnd, GWLP_USERDATA);
+        LONG_PTR lp = GetWindowLongPtr(hWnd, GWLP_USERDATA);
         Kiirogaa* self = (Kiirogaa*)lp;
         if (self != NULL && self->enabled) {
             COPYDATASTRUCT* cds = (COPYDATASTRUCT*)lParam;
@@ -330,26 +330,26 @@ static LRESULT CALLBACK kiirogaaTrayWndProc(
         }
         return FALSE;
     }
-        
+
     default:
-	return DefWindowProc(hWnd, uMsg, wParam, lParam);
+        return DefWindowProc(hWnd, uMsg, wParam, lParam);
     }
 }
 
 
 //  KiirogaaMain
-// 
+//
 int KiirogaaMain(
-    HINSTANCE hInstance, 
-    HINSTANCE hPrevInstance, 
+    HINSTANCE hInstance,
+    HINSTANCE hPrevInstance,
     int nCmdShow,
     int argc, LPWSTR* argv)
 {
     // Prevent a duplicate process.
     HANDLE mutex = CreateMutex(NULL, TRUE, KIIROGAA_MUTEX);
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
-	CloseHandle(mutex);
-	return 0;
+        CloseHandle(mutex);
+        return 0;
     }
 
     // Create a structure.
@@ -369,9 +369,9 @@ int KiirogaaMain(
     // Load a DLL.
     kiirogaa->hModule = LoadLibrary(L"hookey.dll");
     if (kiirogaa->hModule == NULL) {
-        MessageBox(NULL, 
-                   L"hookey.dll is not found.", 
-                   L"Kiirogaa", 
+        MessageBox(NULL,
+                   L"hookey.dll is not found.",
+                   L"Kiirogaa",
                    MB_ICONERROR | MB_OK);
         return 111;
     }
@@ -382,9 +382,9 @@ int KiirogaaMain(
     HOOKPROC hookProc = (HOOKPROC) GetProcAddress(kiirogaa->hModule, "KeyboardProcLL");
     kiirogaa->hHook = SetWindowsHookEx(WH_KEYBOARD_LL, hookProc, kiirogaa->hModule, 0);
     if (kiirogaa->hHook == NULL) {
-        MessageBox(NULL, 
-                   L"SetWindowsHookEx failed.", 
-                   L"Kiirogaa", 
+        MessageBox(NULL,
+                   L"SetWindowsHookEx failed.",
+                   L"Kiirogaa",
                    MB_ICONERROR | MB_OK);
     }
 
@@ -393,35 +393,35 @@ int KiirogaaMain(
     if (kiirogaa->iconKiirogaaOn == NULL) return 111;
     kiirogaa->iconKiirogaaOff = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_KIIROGAA_OFF));
     if (kiirogaa->iconKiirogaaOff == NULL) return 111;
-    
+
     // Register the window class.
     ATOM atom;
     {
-	WNDCLASS wc;
-	ZeroMemory(&wc, sizeof(wc));
-	wc.lpfnWndProc = kiirogaaTrayWndProc;
-	wc.hInstance = hInstance;
-	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wc.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);
+        WNDCLASS wc;
+        ZeroMemory(&wc, sizeof(wc));
+        wc.lpfnWndProc = kiirogaaTrayWndProc;
+        wc.hInstance = hInstance;
+        wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+        wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+        wc.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);
         wc.lpszMenuName = MAKEINTRESOURCE(IDM_POPUPMENU);
-	wc.lpszClassName = L"KiirogaaTrayWindowClass";
-	atom = RegisterClass(&wc);
+        wc.lpszClassName = L"KiirogaaTrayWindowClass";
+        atom = RegisterClass(&wc);
     }
 
     // Create a SysTray window.
     HWND hWnd = CreateWindowEx(
         WS_EX_NOACTIVATE,
-	(LPCWSTR)atom,
-	KIIROGAA_NAME,
-	WS_POPUP,
-	CW_USEDEFAULT, CW_USEDEFAULT,
-	CW_USEDEFAULT, CW_USEDEFAULT,
-	NULL, NULL, hInstance, kiirogaa);
+        (LPCWSTR)atom,
+        KIIROGAA_NAME,
+        WS_POPUP,
+        CW_USEDEFAULT, CW_USEDEFAULT,
+        CW_USEDEFAULT, CW_USEDEFAULT,
+        NULL, NULL, hInstance, kiirogaa);
     SetHWND(hWnd);
     UpdateWindow(hWnd);
     SendMessage(hWnd, WM_USER_STATE_CHANGED, 0, 0);
-    
+
     // Event loop.
     MSG msg;
     while (0 < GetMessage(&msg, NULL, 0, 0)) {
@@ -444,10 +444,10 @@ int KiirogaaMain(
 
 // WinMain and wmain
 #ifdef WINDOWS
-int WinMain(HINSTANCE hInstance, 
-	    HINSTANCE hPrevInstance, 
-	    LPSTR lpCmdLine,
-	    int nCmdShow)
+int WinMain(HINSTANCE hInstance,
+            HINSTANCE hPrevInstance,
+            LPSTR lpCmdLine,
+            int nCmdShow)
 {
     int argc;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
