@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 #
-# cf. https://azure.microsoft.com/en-us/services/cognitive-services/emotion/
+#  Usage:
+#    $ getface.py -K api_key images/*.jpg > faces.txt
+#
+#  cf. https://azure.microsoft.com/en-us/services/cognitive-services/emotion/
 #
 import sys
 import requests
