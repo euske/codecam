@@ -21,7 +21,7 @@ def getfeat(t, featmap, dt=1):
     while i0 < i1:
         i = (i0+i1)//2
         (v,f) = featmap[i]
-        if t < v:
+        if t < v-dt:
             i1 = i
         elif v+dt <= t:
             i0 = i+1
@@ -30,6 +30,7 @@ def getfeat(t, featmap, dt=1):
     return None
 
 PAT = re.compile(r'.*\bi(\d+)\.jpg')
+THRESHOLD = { 'neutral':0.90 }
 def loadfeats(fp):
     feats = []
     for line in fp:
@@ -37,15 +38,17 @@ def loadfeats(fp):
         (t,_,line) = line.partition(' ')
         m = PAT.match(t)
         t = float(m.group(1))
-        f = []
+        fs = []
         for x in line.split(' '):
             (k,_,v) = x.partition(':')
             v = float(v)
-            if k == 'neutral':
-                v -= 0.90
-            f.append((v, k))
-        f.sort(reverse=True)
-        feats.append((t, f[0][1]))
+            v -= THRESHOLD.get(k, 0)
+            fs.append((v, k))
+        fs.sort(reverse=True)
+        f = fs[0][1]
+        if f == 'neutral': continue
+        #print(t,f,file=sys.stderr)
+        feats.append((t-1.5, f))
     feats.sort()
     return feats
 
@@ -101,7 +104,7 @@ def show(func, maps, fp, start=0, featmap=None, debug=0):
 def main(argv):
     import getopt
     def usage():
-        print('usage: %s [-d] {-T|-H template.html} [-s stream.mp3] [-f facemap] '
+        print('usage: %s [-d] {-T|-H template.html} [-s stream.mp4] [-f facemap] '
               'outfile [file ...]' % argv[0])
         return 100
     try:
