@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+##
+##  matcher.py - Discovers mappings between a key log and source code.
+##
+##  Usage:
+##    $ matcher.py [-d] [-t title] [-m maxdist] [-s minsocre]
+##      [-n maxiters] [-x maxcluters] key.log [file ...]
+##
 import sys
 from bisect import bisect_left
 from bisect import bisect_right
@@ -285,7 +292,7 @@ def main(argv):
     import fileinput
     def usage():
         print('usage: %s [-d] [-t title] [-m maxdist] [-s minscore]'
-              ' [-n maxiters] [-x maxclusters] logfile [file ...]' % argv[0])
+              ' [-n maxiters] [-x maxclusters] key.log [file ...]' % argv[0])
         return 100
     try:
         (opts, args) = getopt.getopt(argv[1:], 'dt:m:s:n:x:')

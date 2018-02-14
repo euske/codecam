@@ -1,8 +1,10 @@
 #!/usr/bin/env python
-#
-#  Usage:
-#    $ evalprec.py reference.txt output.txt
-#
+##
+##  evalprec.py - Compares a estimated mapping with a true mapping (for debugging).
+##
+##  Usage:
+##    $ evalprec.py reference.txt output.txt
+##
 import sys
 
 def evalprec(mref, mout):

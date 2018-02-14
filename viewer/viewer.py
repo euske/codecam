@@ -1,6 +1,10 @@
 #!/usr/bin/env python
-# viewer.py
-
+##
+##  viewer.py - Generates a final video player w/ source code in HTML.
+##
+##  Usage:
+##    $ viewer.py [-s stream.mp4] [-f faces.txt] out.map [file ...]
+##
 import sys
 import os.path
 import time

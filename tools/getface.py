@@ -1,10 +1,12 @@
 #!/usr/bin/env python
-#
-#  Usage:
-#    $ getface.py -K api_key images/*.jpg > faces.txt
-#
-#  cf. https://azure.microsoft.com/en-us/services/cognitive-services/emotion/
-#
+##
+##  getface.py - Labels a sequence of jpeg images with face data.
+##
+##  Usage:
+##    $ getface.py -K api_key images/*.jpg > faces.txt
+##
+##  cf. https://azure.microsoft.com/en-us/services/cognitive-services/emotion/
+##
 import sys
 import requests
 import json
