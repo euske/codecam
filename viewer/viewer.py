@@ -15,6 +15,31 @@ def q(s):
             replace('"','&#34;').
             replace("'",'&#39;'))
 
+def show_html_header():
+    print('''<!DOCTYPE html>
+<html>
+<meta charset="utf-8" />
+<style>
+.f_anger { background: cyan; }
+.f_contempt { background: cyan; }
+.f_disgust { background: cyan; }
+.f_fear { background: cyan; }
+.f_happiness { background: yellow; }
+.f_sadness { background: cyan; }
+.f_surprise { background: cyan; }
+.h { background: lightgreen; }
+#video { position: fixed; top:0; right:0; width: 800px; padding:0; margin:0; }
+</style>
+<script src="player.js"></script>
+<body onload="run()">
+''')
+    return
+
+def getstart(path):
+    (name,_) = os.path.splitext(os.path.basename(path))
+    start = time.mktime(time.strptime(name[-15:], '%Y%m%d-%H%M%S'))
+    return start+1
+
 def getfeat(t, featmap, dt=1):
     i1 = len(featmap)
     i0 = 0
@@ -104,21 +129,18 @@ def show(func, maps, fp, start=0, featmap=None, debug=0):
 def main(argv):
     import getopt
     def usage():
-        print('usage: %s [-d] {-T|-H template.html} [-s stream.mp4] [-f facemap] '
+        print('usage: %s [-d] [-s stream.mp4] [-f facemap] '
               'outfile [file ...]' % argv[0])
         return 100
     try:
-        (opts, args) = getopt.getopt(argv[1:], 'dTH:s:f:')
+        (opts, args) = getopt.getopt(argv[1:], 'ds:f:')
     except getopt.GetoptError:
         return usage()
     debug = 0
-    html = None
-    stream = 'stream.mp4'
+    stream = None
     featmap = None
     for (k, v) in opts:
         if k == '-d': debug += 1
-        elif k == '-T': html = None
-        elif k == '-H': html = v
         elif k == '-s': stream = v
         elif k == '-f':
             with open(v, 'r') as fp:
@@ -136,22 +158,17 @@ def main(argv):
             if line:
                 (t,c) = eval(line)
                 maps[int(i2)] = (t,c)
-    if html is not None:
-        with open(html, 'r') as fp:
-            sys.stdout.write(fp.read())
+    if stream is None:
+        fp = fileinput.input(args)
+        show(func_text, maps, fp, featmap=featmap, debug=debug)
+    else:
+        start = getstart(stream)
+        show_html_header()
         sys.stdout.write('<video controls id="video" src="%s"></video>\n' %
                          q(stream))
-        (name,_) = os.path.splitext(os.path.basename(stream))
-        start = time.mktime(time.strptime(name[-15:], '%Y%m%d-%H%M%S'))
-        start += 1
         sys.stdout.write('<pre id="src">\n')
-        func = func_html
-    else:
-        start = 0
-        func = func_text
-    fp = fileinput.input(args)
-    show(func, maps, fp, start=start, featmap=featmap, debug=debug)
-    if html is not None:
+        fp = fileinput.input(args)
+        show(func_html, maps, fp, start=start, featmap=featmap, debug=debug)
         sys.stdout.write('</pre>\n')
     return
 
