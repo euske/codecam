@@ -42,7 +42,7 @@ A set of tools (a.k.a. "framework") to create a video-annotated source code.
 
 Discovers mappings between a key log and source code.
 
-*Usage:*
+**Usage:**
 ```
 $ matcher.py [-d] [-t title] [-m maxdist] [-s minsocre]
   [-n maxiters] [-x maxcluters] key.log [file ...] > out.map
@@ -52,7 +52,7 @@ $ matcher.py [-d] [-t title] [-m maxdist] [-s minsocre]
 
 Label a sequence of jpeg images with face data.
 
-*Usage:*
+**Usage:**
 ```
 $ getface.py -K api_key images/*.jpg > faces.txt
 ```
@@ -62,7 +62,7 @@ cf. https://azure.microsoft.com/en-us/services/cognitive-services/emotion/
 
 Makes a sequence of shrinked jpegs from a video.
 
-*Usage:*
+**Usage:**
 ```
 $ trimvideo.sh input.mp4 output/ [trimsize] [videosize]
 ```
@@ -71,7 +71,7 @@ $ trimvideo.sh input.mp4 output/ [trimsize] [videosize]
 
 Compares a estimated mapping with a true mapping (for debugging).
 
-*Usage:*
+**Usage:**
 ```
 $ evalprec.py reference.txt output.txt
 ```
@@ -80,7 +80,7 @@ $ evalprec.py reference.txt output.txt
 
 Generates a final video player w/ source code in HTML.
 
-*Usage:*
+**Usage:**
 ```
 $ viewer.py [-s stream.mp4] [-f faces.txt] out.map [file ...]
 ```
