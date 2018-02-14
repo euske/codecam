@@ -42,19 +42,19 @@ A set of tools (a.k.a. "framework") to create a video-annotated source code.
 
 Discovers mappings between a key log and source code.
 
-_Usage:_
+*Usage:*
 ```
-    $ matcher.py [-d] [-t title] [-m maxdist] [-s minsocre]
-      [-n maxiters] [-x maxcluters] key.log [file ...] > out.map
+$ matcher.py [-d] [-t title] [-m maxdist] [-s minsocre]
+  [-n maxiters] [-x maxcluters] key.log [file ...] > out.map
 ```
 
 ### getface.py
 
 Label a sequence of jpeg images with face data.
 
-_Usage:_
+*Usage:*
 ```
-    $ getface.py -K api_key images/*.jpg > faces.txt
+$ getface.py -K api_key images/*.jpg > faces.txt
 ```
 cf. https://azure.microsoft.com/en-us/services/cognitive-services/emotion/
 
@@ -62,25 +62,25 @@ cf. https://azure.microsoft.com/en-us/services/cognitive-services/emotion/
 
 Makes a sequence of shrinked jpegs from a video.
 
-_Usage:_
+*Usage:*
 ```
-    $ trimvideo.sh input.mp4 output/ [trimsize] [videosize]
+$ trimvideo.sh input.mp4 output/ [trimsize] [videosize]
 ```
 
 ### evalprec.py
 
 Compares a estimated mapping with a true mapping (for debugging).
 
-_Usage:_
+*Usage:*
 ```
-    $ evalprec.py reference.txt output.txt
+$ evalprec.py reference.txt output.txt
 ```
 
 ### vierer.py
 
 Generates a final video player w/ source code in HTML.
 
-_Usage:_
+*Usage:*
 ```
-    $ viewer.py [-s stream.mp4] [-f faces.txt] out.map [file ...]
+$ viewer.py [-s stream.mp4] [-f faces.txt] out.map [file ...]
 ```
