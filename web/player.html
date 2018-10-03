@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8" />
+<style><!--
+.h { background: lightgreen; }
+.editor { position: relative; height: 12em; }
+.console { position: relative; height: 12em; }
+#video { position: fixed; top:0; right:0; }
+#code { position: absolute; top:0; left:0; }
+#output { position: absolute; top:0; left:0; color: white; background: black; }
+--></style>
+<script><!--
+var video = null;
+var code = null;
+var output = null;
+var timeline1 = null;
+var timeline2 = null;
+
+class Segment {
+  constructor(t, value) {
+    this.t = t;
+    this.value = value;
+  }
+
+  toString() {
+    return ('<Segment ('+this.t+'): '+this.value+'>');
+  }
+}
+
+class Timeline {
+  constructor(data) {
+    this.segs = [];
+    this.segs.push(new Segment(-Infinity, ''));
+    for (let t in data) {
+      let v = data[t];
+      t = parseFloat(t);
+      this.segs.push(new Segment(t, v));
+    }
+    this.segs.push(new Segment(+Infinity, ''));
+    this.segs.sort((a,b) => { return a.t - b.t; });
+  }
+
+  get(t) {
+    let i0 = 0;
+    let i1 = this.segs.length;
+    while (i0 < i1) {
+      let i = Math.floor((i0+i1)/2);
+      let seg0 = this.segs[i];
+      let seg1 = this.segs[i+1];
+      if (t < seg0.t) {
+        i1 = i;
+      } else if (seg1.t <= t) {
+        i0 = i+1;
+      } else {
+        // seg0.t <= t && t < seg1.t
+        return seg0.value;
+      }
+    }
+    return null;
+  }
+}
+
+function idle() {
+  let t = video.currentTime;
+  code.value = timeline1.get(t);
+  output.value = timeline2.get(t);
+}
+
+function run() {
+  video = document.getElementById('video');
+  code = document.getElementById('code');
+  output = document.getElementById('output');
+  const value = window.location.search;
+  if (value.startsWith('?sid=')) {
+    const sid = value.substr(5);
+    console.log('run: sid='+sid);
+    video.src = '/video?sid='+sid;
+    let xhr = new XMLHttpRequest();
+    xhr.addEventListener('load', () => {
+      let data = JSON.parse(xhr.responseText);
+      timeline1 = new Timeline(data.text);
+      timeline2 = new Timeline(data.output);
+      setInterval(idle, 33);
+    });
+    xhr.open('GET', '/text?sid='+sid, true);
+    xhr.send();
+  }
+}
+--></script>
+<body onload="run()">
+<div class="editor">
+<textarea id="code" cols="80" rows="10" readonly spellcheck="false"></textarea>
+</div>
+<div class="console">
+<textarea id="output" cols="80" rows="10" readonly spellcheck="false"></textarea>
+</div>
+<video id="video" with="320" height="240" controls autoplay></video>

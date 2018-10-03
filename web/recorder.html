@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8" />
+<title>CodeCAM - Recorder</title>
+<style><!--
+.editor { position: relative; height: 12em; }
+#video { position: fixed; top:0; right:0; }
+#code { position: absolute; top:0; left:0; }
+#run { position: absolute; left:0; bottom:0; }
+.console { position: relative; height: 12em; }
+#output { position: absolute; top:0; left:0; color: white; background: black; }
+--></style>
+<script><!--
+var video = null;
+var sessionId = null;
+var prevText = null;
+var recorder = null;
+
+function rndhex() {
+  return Math.floor((1+Math.random()) * 0x10000).toString(16).substring(1);
+}
+
+function sendIt(url, data) {
+  let t = video.currentTime;
+  let xhr = new XMLHttpRequest();
+  xhr.open('POST', '/'+url+'?sid='+sessionId+'&t='+t, true);
+  xhr.send(data);
+}
+
+function setup() {
+  sessionId = rndhex()+rndhex();
+  console.log('sessionId='+sessionId);
+  video = document.getElementById('video');
+  navigator.mediaDevices.getUserMedia({ audio: true, video: true }).then((stream) => {
+    console.log('started: ', stream);
+    let opts = { mimeType: 'video/webm' };
+    recorder = new MediaRecorder(stream, opts);
+    console.log('recording: ', recorder);
+    recorder.onstop = function (e) {
+      console.log('stopped');
+      sendIt('stop', '');
+    };
+    recorder.ondataavailable = function (e) {
+      sendIt('video', e.data);
+    };
+    recorder.start(500);
+    video.srcObject = stream;
+    video.play();
+  });
+  sendIt('start', '');
+}
+
+function finish() {
+  recorder.stop();
+  for (let track of video.srcObject.getTracks()) {
+    track.stop();
+  }
+}
+
+function check() {
+  let code = document.getElementById('code');
+  if (prevText === null || prevText != code.value) {
+    prevText = code.value;
+    sendIt('text', code.value);
+  }
+}
+
+function runit() {
+  let code = document.getElementById('code');
+  let output = document.getElementById('output');
+  output.value = '';
+  function print(s) {
+    output.value += s;
+  }
+  function println(s) {
+    output.value += s+'\n';
+  }
+  try {
+    eval(code.value);
+  } catch (e) {
+    print('ERROR: '+e);
+  }
+  sendIt('run', output.value);
+}
+
+--></script>
+<body onload="setup()">
+<div class="editor">
+<textarea id="code" cols="80" rows="10"
+          onkeypress="check()" onchange="check()"
+          autofocus autocomplete="off" spellcheck="false">
+println("hello world");
+</textarea>
+<button id="run" accesskey="R" onclick="runit()">Run</button>
+</div>
+<div class="console">
+<textarea id="output" cols="80" rows="10" readonly spellcheck="false"></textarea>
+</div>
+<video id="video" with="320" height="240" controls autoplay></video>
+<div>
+<button onclick="finish()">Stop Recording</button>
+</div>
