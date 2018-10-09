@@ -30,7 +30,7 @@ class Session {
   close() {
     console.log('close:', this);
     fs.closeSync(this.fd);
-    const path = DATADIR+'/data_'+sid+'.json';
+    const path = DATADIR+'/data_'+this.sid+'.json';
     const data = { text: this.text, output: this.output };
     fs.writeFileSync(path, JSON.stringify(data));
   }
@@ -102,14 +102,14 @@ class Session {
 function idle() {
   const t = new Date();
   let removed = [];
-  for (sid in sessions) {
+  for (let sid in sessions) {
     let session = sessions[sid];
     if (!session.isAlive(t)) {
       session.close();
       removed.push(sid);
     }
   }
-  for (sid of removed) {
+  for (let sid of removed) {
     delete sessions[sid];
   }
 }
@@ -122,7 +122,7 @@ function serve(req, res) {
     res.writeHead(200, {'Content-Type': 'text/html'});
     res.write('<html><body><h1>List</h1>\n');
     res.write('<table border><tr><th>Id</th><th>Date</th></tr>\n');
-    for (ent of fs.readdirSync(DATADIR, {withFileTypes: true})) {
+    for (let ent of fs.readdirSync(DATADIR, {withFileTypes: true})) {
       if (ent.isFile() && ent.name.endsWith('.webm')) {
         const i = ent.name.indexOf('_');
         const id1 = ent.name.substring(i+1, ent.name.length-5);
